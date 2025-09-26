@@ -24,7 +24,7 @@ from .serializers import (
 
 from django.contrib import messages
 from django.db import connection
-from .utils import send_sms
+# from .utils import send_sms
 
 # -------------------------
 # Login View
@@ -104,12 +104,12 @@ def dashboard_view(request):
 # -------------------------
 # SMS Test View
 # -------------------------
-def some_iot_alert_view(request):
-    try:
-        sms_sid = send_sms('+917355383021', 'Alert! IoT device reading high.')
-        return HttpResponse(f"SMS sent successfully! SID: {sms_sid}")
-    except Exception as e:
-        return HttpResponse(f"Failed to send SMS: {e}")
+# def some_iot_alert_view(request):
+#     try:
+#         sms_sid = send_sms('+917355383021', 'Alert! IoT device reading high.')
+#         return HttpResponse(f"SMS sent successfully! SID: {sms_sid}")
+#     except Exception as e:
+#         return HttpResponse(f"Failed to send SMS: {e}")
 
 # -------------------------
 # DRF ViewSets for all models

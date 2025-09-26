@@ -1,10 +1,10 @@
 # import django_heroku
-# import dj_database_url
+import dj_database_url
 # iot_project/settings.py
 import os
 from pathlib import Path
-import pymysql
-pymysql.install_as_MySQLdb()
+# import pymysql
+# pymysql.install_as_MySQLdb()
 
 
 
@@ -75,22 +75,27 @@ TEMPLATES = [
 WSGI_APPLICATION = 'iot_project.wsgi.application'
 
 # SQLite
-'''DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}'''
+# '''DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }'''
+# DATABASES = {
+#             'default': {
+#                 'ENGINE': 'django.db.backends.mysql',
+#                 'NAME': 'airkpi',  # Replace with your database name
+#                 'USER': 'root',      # Replace with your MySQL username
+#                 'PASSWORD': '1234', # Replace with your MySQL password
+#                 'HOST': 'localhost',             # Or the IP address/hostname of your MySQL server
+#                 'PORT': '3306',                  # Default MySQL port
+#             }
+#         }
+
 DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.mysql',
-                'NAME': 'airkpi',  # Replace with your database name
-                'USER': 'root',      # Replace with your MySQL username
-                'PASSWORD': '1234', # Replace with your MySQL password
-                'HOST': 'localhost',             # Or the IP address/hostname of your MySQL server
-                'PORT': '3306',                  # Default MySQL port
-            }
-        }
+    "default": dj_database_url.config(default=os.getenv("DATABASE_URL"))
+}
+
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],

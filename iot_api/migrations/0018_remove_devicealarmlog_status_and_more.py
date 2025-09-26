@@ -10,10 +10,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='devicealarmlog',
-            name='STATUS',
-        ),
+        # migrations.RemoveField(
+        #     model_name='devicealarmlog',
+        #     name='STATUS',
+        # ),
         migrations.AlterField(
             model_name='devicealarmlog',
             name='NORMALIZED_DATE',

@@ -40,9 +40,10 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
-    path('alert/', views.some_iot_alert_view, name='alert'),
+    # path('alert/', views.some_iot_alert_view, name='alert'),
     path('api/', include(router.urls)),
     path('user/', views.user_dashboard, name='user'),
     path("api/currentuser/", current_user_api, name="current_user"),
     path("api/userorgcentre/", user_org_centre_api, name="user_org_centre"),
+    
 ]
