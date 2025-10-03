@@ -307,6 +307,13 @@ async function openDeviceDashboard(categoryId){
       const now=new Date();
       document.getElementById("alarm24h").textContent = alarms.filter(a=>now-new Date(a.ALARM_DATE+"T"+a.ALARM_TIME)<=24*60*60*1000).length;
 
+      // 🔹 Sort alarms by date & time descending
+    alarms.sort((a,b)=>{
+    const dateA = new Date(a.ALARM_DATE+"T"+a.ALARM_TIME);
+    const dateB = new Date(b.ALARM_DATE+"T"+b.ALARM_TIME);
+    return dateB - dateA; // latest first
+     });
+
       const alarmBody=document.getElementById("alarmLog"); alarmBody.innerHTML=""; let activeCount=0;
       alarms.forEach(a=>{
         const device=devices.find(d=>d.DEVICE_ID===a.DEVICE_ID); if(!device)return;
