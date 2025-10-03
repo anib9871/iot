@@ -162,11 +162,26 @@ async function loadUserOrganizationCentrelink(){
 
 async function loadOrganizations(){
   try{
+   // 1️⃣ Pehle user ka link load karo
+    const userRes = await fetch(BASE_URL + "/api/currentuser/");
+    const currentUser = await userRes.json();
+
+    const linkRes = await fetch(API.userorganizationcentrelink + `?USER_ID=${currentUser.USER_ID}`);
+    const userLinks = await linkRes.json(); // ye array me org+centre links milega
+
+    const allowedOrgIds = userLinks.map(l => l.ORGANIZATION_ID); // allowed org IDs
+
+    // 2️⃣ Fetch all orgs
     const res = await fetch(API.masterorganizations);
     const orgs = await res.json();
+
     const orgSelect = document.getElementById("organizationSelect");
     orgSelect.innerHTML = '<option value="">Select Organization</option>';
-    orgs.forEach(o=>orgSelect.innerHTML += `<option value="${o.ORGANIZATION_ID}">${o.ORGANIZATION_NAME}</option>`);
+
+    // 3️⃣ Filter orgs by allowedOrgIds
+    orgs
+      .filter(o => allowedOrgIds.includes(o.ORGANIZATION_ID))
+      .forEach(o => orgSelect.innerHTML += `<option value="${o.ORGANIZATION_ID}">${o.ORGANIZATION_NAME}</option>`);
   }catch(err){ console.error(err);}
 }
 
