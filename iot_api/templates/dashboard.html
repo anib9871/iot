@@ -314,6 +314,34 @@ async function loadTable(table){
 
   try{
     currentData = await fetchJSON(API[currentTable]);
+    // ✅ Yahin lagana hai sorting ka code
+    if (currentTable === "devicereadinglog") {
+      // Agar Reading + Date/Time dono available hain
+      if (currentData.length > 0 && currentData[0].READING_DATE && currentData[0].READING_TIME) {
+        currentData.sort((a, b) => {
+          const dateA = new Date(a.READING_DATE + " " + a.READING_TIME);
+          const dateB = new Date(b.READING_DATE + " " + b.READING_TIME);
+          return dateB - dateA;  // Latest pehle
+        });
+      }
+      // Agar sirf READING field hai
+      else if (currentData.length > 0 && currentData[0].READING !== undefined) {
+        currentData.sort((a, b) => b.READING - a.READING);
+      }
+    }
+
+        if (currentTable === "devicealarmlog") {
+        if (currentData.length > 0 && currentData[0].ALARM_DATE && currentData[0].ALARM_TIME) {
+            currentData.sort((a, b) => {
+                const dateA = new Date(a.ALARM_DATE + " " + a.ALARM_TIME);
+                const dateB = new Date(b.ALARM_DATE + " " + b.ALARM_TIME);
+                return dateB - dateA;  // Latest first
+            });
+        } else if (currentData.length > 0 && currentData[0].READING !== undefined) {
+            currentData.sort((a, b) => b.READING - a.READING);
+        }
+    }
+
   }catch(err){
     console.error("Fetch table failed:", err);
     currentData = [];
