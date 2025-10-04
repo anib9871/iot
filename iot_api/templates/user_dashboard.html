@@ -25,6 +25,410 @@ body { margin:0; padding-top:70px; display:flex; }
 .device-type-card { flex:1 1 calc(33.33% - 10px); max-width:calc(33.33% - 10px); height:120px; background:linear-gradient(135deg,#0d6efd,#6610f2); color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; transition:0.3s; }
 .device-type-card:hover { transform:translateY(-5px); box-shadow:0 6px 15px rgba(0,0,0,0.2); }
 .device-type-card.disabled { background:#e0e0e0 !important; color:#888 !important; cursor:not-allowed; }
+.device-card { padding:10px; border-radius:12px; color:white; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); margin-bottom:10px; max-width:300px; width:100%; }
+.device-card.bg-success { background:#fff; border:2px solid #28a745; color:#000; min-height:60px; max-width:400px; }
+.device-card.bg-danger { background:#fff; border:2px solid #dc3545; color:#000; min-height:60px; max-width:400px; }
+#deviceDetailsContainer { display:none; }
+#deviceList .device-card { width:100%; margin-bottom:8px; }
+#alarmLog tr td { vertical-align:middle; }
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+<div class="container-fluid">
+  <a class="navbar-brand" href="#">IoT Dashboard</a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+    <ul class="navbar-nav">
+      <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
+    </ul>
+  </div>
+</div>
+</nav>
+
+<div class="sidebar">
+  <div class="sidebar-content">
+    <h5>Filters</h5>
+    <select id="organizationSelect" class="form-select mb-3"><option value="">Select Organization</option></select>
+    <select id="centreSelect" class="form-select mb-3"><option value="">Select Centre</option></select>
+
+    <label for="startDateTime">Start Date & Time</label>
+    <input type="datetime-local" id="startDateTime" class="form-control mb-2">
+    <label for="endDateTime">End Date & Time</label>
+    <input type="datetime-local" id="endDateTime" class="form-control mb-3">
+    <button class="btn btn-sm btn-warning w-100 mt-2 mb-3" onclick="clearFilters()">Clear Filters</button>
+    <h5>Summary</h5>
+    <div id="summaryCards">
+      <div class="summary-card bg-primary text-center mb-3">
+        <i class="bi bi-hdd-network"></i><h6>Total Devices</h6><p id="totalDevices" class="fs-5 fw-bold">0</p>
+      </div>
+      <div class="summary-card bg-success text-center mb-3">
+        <i class="bi bi-check-circle"></i><h6>Active Devices</h6><p id="activeDevices" class="fs-5 fw-bold">0</p>
+      </div>
+      <div class="summary-card bg-danger text-center mb-3">
+        <i class="bi bi-x-circle"></i><h6>Offline Devices</h6><p id="offlineDevices" class="fs-5 fw-bold">0</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content">
+  <div id="deviceTypeCards" class="d-flex flex-wrap gap-3"></div>
+
+  <div id="deviceDetailsContainer">
+    <button class="btn btn-sm btn-secondary mb-3" onclick="backToDashboard()">← Back</button>
+    <h4 id="deviceTypeTitle"></h4>
+
+    <div style="max-width:250px;" id="deviceList" class="mb-3"></div>         
+
+    <div style="max-width:700px;margin:auto;display:flex;gap:15px;align-items:flex-start;">
+      <div style="flex:0 0 150px;display:flex;flex-direction:column;gap:10px;margin-left:-200px;">
+        <!-- <div style="background:#0d6efd;color:#fff;border-radius:10px;padding:8px;text-align:center;">
+          <h6 style="font-size:0.8rem;margin-bottom:4px;">Current Temp</h6>
+          <p id="currentTemp" class="fs-6 fw-bold">0 °C</p>
+        </div> -->
+            <div style="max-width:250px;background:#dc3545;color:#fff;border-radius:10px;padding:8px;text-align:center;" class="mb-3">
+          <h6 style="font-size:0.8rem;margin-bottom:4px;">Total Alarms (24h)</h6>
+          <p id="alarm24h" class="fs-6 fw-bold">0</p>
+        </div>
+
+
+      </div>
+      <div style="flex:1;background:#fff;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:15px;">
+        <canvas id="deviceGraph" style="max-height:300px;"></canvas>
+      </div>
+    </div>
+
+    <h5 class="mt-4 d-flex justify-content-between align-items-center">
+      Alarm Log <span class="badge bg-danger" id="activeAlarmCount">0</span>
+    </h5>
+    <input type="text" id="alarmSearch" class="form-control mb-2" placeholder="Search alarms...">
+    <table class="table table-striped">
+      <thead><tr><th>Device</th><th>Alarm</th><th>Time</th><th>Status</th></tr></thead>
+      <tbody id="alarmLog"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Base API
+const BASE_URL = "https://iot-y8pi.onrender.com"; // direct IP
+const API = {
+  masterorganizations: BASE_URL + "/api/masterorganization/",
+  mastercentre: BASE_URL + "/api/mastercentre/",
+  devicecategory: BASE_URL + "/api/devicecategory/",
+  masterDevices: BASE_URL + "/api/masterdevice/",
+  devicereadinglog: BASE_URL + "/api/devicereadinglog/",
+  devicealarmlog: BASE_URL + "/api/devicealarmlog/",
+  userorganizationcentrelink: BASE_URL + "/api/userorganizationcentrelink/",
+  masteruom:           BASE_URL + "/api/masteruom/",
+  masterparameter:     BASE_URL + "/api/masterparameter/",
+};
+
+let centreData=[], allDevices=[], allCategories=[], currentCentreId=null, currentUser=null;
+let currentCategoryId=null, liveUpdateInterval=null;
+
+// Load organizations dropdown
+async function loadOrganizations(){
+  try{
+    const userRes = await fetch(BASE_URL + "/api/currentuser/");
+    currentUser = await userRes.json();
+
+    const linkRes = await fetch(API.userorganizationcentrelink + `?USER_ID=${currentUser.USER_ID}`);
+    const userLinks = await linkRes.json();
+    const allowedOrgIds = userLinks.map(l => l.ORGANIZATION_ID);
+
+    const res = await fetch(API.masterorganizations);
+    const orgs = await res.json();
+    const orgSelect = document.getElementById("organizationSelect");
+    orgSelect.innerHTML = '<option value="">Select Organization</option>';
+    orgs.filter(o => allowedOrgIds.includes(o.ORGANIZATION_ID))
+        .forEach(o => orgSelect.innerHTML += `<option value="${o.ORGANIZATION_ID}">${o.ORGANIZATION_NAME}</option>`);
+    
+    // Auto select user org
+    if(userLinks.length>0){
+      orgSelect.value = userLinks[0].ORGANIZATION_ID;
+      await loadCentres(orgSelect.value, true, userLinks[0].CENTRE_ID);
+    }
+  }catch(err){ console.error(err);}
+}
+
+// Load centres dropdown
+async function loadCentres(orgId, auto=false, userCentreId=null){
+  const centreSelect=document.getElementById("centreSelect");
+  centreSelect.innerHTML='<option value="">Select Centre</option>';
+  if(!orgId) return;
+  try{
+    if(!centreData.length){
+      const res = await fetch(API.mastercentre);
+      centreData = await res.json();
+    }
+    const filtered = centreData.filter(c=>c.ORGANIZATION_ID==orgId);
+    filtered.forEach(c=>centreSelect.innerHTML += `<option value="${c.CENTRE_ID}">${c.CENTRE_NAME}</option>`);
+    
+    if(auto && userCentreId) {
+      centreSelect.value = userCentreId;
+      loadDevices(userCentreId);
+    }
+  }catch(err){console.error(err);}
+}
+
+// Load devices & categories
+async function loadDevices(centreId){
+  currentCentreId=centreId;
+  try{
+    const res = await fetch(API.masterDevices);
+    allDevices = (await res.json()).filter(d=>d.CENTRE_ID==centreId);
+    const catRes = await fetch(API.devicecategory);
+    allCategories = await catRes.json();
+    updateSummary();
+    showCategoryCards();
+  }catch(err){console.error(err);}
+}
+
+function clearFilters(){
+  document.getElementById("startDateTime").value = "";
+  document.getElementById("endDateTime").value = "";
+  if(currentCategoryId) openDeviceDashboard(currentCategoryId);
+}
+
+// Update summary cards
+function updateSummary(){
+  const total=allDevices.length;
+  const active=allDevices.filter(d=>d.status?.toLowerCase()==="active").length;
+  document.getElementById("totalDevices").textContent=total;
+  document.getElementById("activeDevices").textContent=active;
+  document.getElementById("offlineDevices").textContent=total-active;
+}
+
+// Show category cards
+function showCategoryCards(){
+  document.getElementById("deviceDetailsContainer").style.display="none";
+  const container=document.getElementById("deviceTypeCards");
+  container.innerHTML="";
+  allCategories.forEach(cat=>{
+    const devicesOfCat = allDevices.filter(d=>d.CATEGORY_ID===cat.CATEGORY_ID);
+    const count = devicesOfCat.length;
+    const card = document.createElement("div");
+    card.className="device-type-card";
+    card.innerHTML=`<h6>${cat.CATEGORY_NAME}</h6><strong>${count}</strong>`;
+    if(count>0) card.onclick=()=>openDeviceDashboard(cat.CATEGORY_ID, cat.CATEGORY_NAME);
+    else card.classList.add('disabled');
+    container.appendChild(card);
+  });
+}
+
+function backToDashboard(){ showCategoryCards(); if(liveUpdateInterval) clearInterval(liveUpdateInterval);}
+function logout(){ fetch('/logout/').then(()=>window.location='/login/');}
+
+// Update graph automatically when date/time changes
+document.getElementById("startDateTime").addEventListener("change", ()=>{ if(currentCategoryId) openDeviceDashboard(currentCategoryId); });
+document.getElementById("endDateTime").addEventListener("change", ()=>{ if(currentCategoryId) openDeviceDashboard(currentCategoryId); });
+document.getElementById("organizationSelect").addEventListener("change",e=>loadCentres(e.target.value));
+document.getElementById("centreSelect").addEventListener("change",e=>loadDevices(e.target.value));
+
+// ----- Device Dashboard -----
+async function openDeviceDashboard(categoryId) {
+  currentCategoryId = categoryId;
+  document.getElementById("deviceTypeCards").innerHTML = "";
+  document.getElementById("deviceDetailsContainer").style.display = "block";
+
+  const category = allCategories.find(c => c.CATEGORY_ID === categoryId);
+  document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
+
+  const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
+  const deviceList = document.getElementById("deviceList");
+  deviceList.innerHTML = "";
+
+  // --- fetch master parameters from API ---
+  let masterparameter = [];
+  try {
+    const response = await fetch('/api/masterparameter'); // yaha apni API URL daal
+    masterparameter = await response.json();
+  } catch (err) {
+    console.error("Failed to fetch master parameters:", err);
+  }
+
+  devices.forEach(d => {
+    const temp = parseFloat(d.reading || 0).toFixed(2);
+    const color = temp > 70 ? 'bg-danger' : 'bg-success';
+
+    // find UOM from masterParameters
+    const param = masterparameter.find(p => p.PARAMETER_ID === d.PARAMETER_ID);
+    const uom = param ? param.UOM_NAME : '';
+
+    const div = document.createElement("div");
+    div.className = "device-card " + color;
+    div.innerHTML = `<h6>${d.DEVICE_NAME}</h6><p id="currentTemp">${temp} ${uom}</p>`;
+
+    deviceList.appendChild(div);
+  });
+
+  async function updateDeviceGraph(){
+    try{
+      const start = document.getElementById("startDateTime").value ? new Date(document.getElementById("startDateTime").value) : null;
+      const end = document.getElementById("endDateTime").value ? new Date(document.getElementById("endDateTime").value) : null;
+
+      let url = API.devicereadinglog+`?centre=${currentCentreId}&category=${currentCategoryId}`;
+      const readingsDataRaw = await (await fetch(url)).json();
+      const readingsData = readingsDataRaw.filter(r=>{
+        const dt=new Date(r.READING_DATE+"T"+r.READING_TIME);
+        return devices.map(d=>d.DEVICE_ID).includes(r.DEVICE_ID) && (!start || dt>=start) && (!end || dt<=end);
+      });
+
+      const deviceMap={}; devices.forEach(d=>deviceMap[d.DEVICE_ID]=[]);
+      readingsData.forEach(r=>{
+        let dt=new Date(r.READING_DATE+"T"+r.READING_TIME);
+        dt.setMinutes(Math.floor(dt.getMinutes()/10)*10,0,0);
+        deviceMap[r.DEVICE_ID].push({x:dt,y:parseFloat(r.READING)});
+      });
+
+      if(start && end){
+        devices.forEach(d=>{
+          let current=new Date(start);
+          while(current<=end){
+            if(!deviceMap[d.DEVICE_ID].some(r=>r.x.getTime()===current.getTime())){
+              deviceMap[d.DEVICE_ID].push({x:new Date(current),y:null});
+            }
+            current=new Date(current.getTime()+10*60*1000);
+          }
+          deviceMap[d.DEVICE_ID].sort((a,b)=>a.x-b.x);
+        });
+      }
+
+      const ctx = document.getElementById("deviceGraph").getContext('2d');
+      const datasets = devices.map(d => {
+          const grad = ctx.createLinearGradient(0,0,700,0);
+          grad.addColorStop(0,"#42a5f5");
+          grad.addColorStop(1,"#66bb6a");
+          return {
+              label: d.DEVICE_NAME,
+              data: deviceMap[d.DEVICE_ID],
+              borderColor: grad,
+              backgroundColor: "rgba(66,165,245,0.15)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              pointBackgroundColor: "#fff",
+              pointBorderWidth: 2,
+              borderWidth: 3
+          };
+      });
+
+      if(window.deviceChart){
+          window.deviceChart.data.datasets = datasets;
+          window.deviceChart.update();
+      } else {
+          window.deviceChart = new Chart(ctx, {
+              type: 'line',
+              data: { datasets },
+              options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  interaction: { mode: 'nearest', intersect: false },
+                  plugins: {
+                      legend: { display: true, position: 'top', labels: { font: { size: 13 }, padding: 15 } },
+                      tooltip: {
+                          mode: 'index',
+                          intersect: false,
+                          callbacks: { label: c => c.dataset.label + ": " + (c.parsed.y != null ? c.parsed.y.toFixed(2) + " °C" : "-") }
+                      }
+                  },
+                  scales: {
+                      x: {
+                          type: 'time',
+                          time: { tooltipFormat: 'dd-MM-yyyy HH:mm', displayFormats: { hour:'dd MMM HH:mm', minute:'HH:mm' } },
+                          title: { display: true, text: 'Date & Time', font: { size: 14, weight: 'bold' } },
+                          ticks: { autoSkip: true, maxRotation: 45, minRotation: 30 },
+                          grid: { color: 'rgba(0,0,0,0.05)' }
+                      },
+                      y: {
+                          min: 0,
+                          max: 10,
+                          title: { display: true, text: 'Temperature (°C)', font: { size: 14, weight: 'bold' } },
+                          ticks: { stepSize: 1, font: { size: 12 } },
+                          grid: { color: 'rgba(0,0,0,0.05)', borderDash: [5,5] }
+                      }
+                  },
+                  elements: {
+                      line: { tension: 0.3, borderWidth: 3 },
+                      point: { hoverRadius: 8, radius: 6 }
+                  }
+              }
+          });
+      }
+
+      document.getElementById("currentTemp").textContent = readingsData.length ? parseFloat(readingsData.at(-1).READING).toFixed(2)+" °C" : "0 °C";
+
+      let alarmUrl = API.devicealarmlog+`?centre=${currentCentreId}&category=${currentCategoryId}`;
+      const alarmsRaw = await (await fetch(alarmUrl)).json();
+      const alarms = alarmsRaw.filter(a=>{
+        const dt=new Date(a.ALARM_DATE+"T"+a.ALARM_TIME);
+        return devices.map(d=>d.DEVICE_ID).includes(a.DEVICE_ID) && (!start || dt>=start) && (!end || dt<=end);
+      });
+
+      const now = new Date();
+      document.getElementById("alarm24h").textContent = alarms.filter(a=>now-new Date(a.ALARM_DATE+"T"+a.ALARM_TIME)<=24*60*60*1000).length;
+
+      const alarmBody = document.getElementById("alarmLog"); alarmBody.innerHTML=""; let activeCount=0;
+      alarms.sort((a,b)=>new Date(b.ALARM_DATE+"T"+b.ALARM_TIME)-new Date(a.ALARM_DATE+"T"+a.ALARM_TIME));
+      alarms.forEach(a=>{
+        const device=devices.find(d=>d.DEVICE_ID===a.DEVICE_ID); if(!device)return;
+        const isActive = a.IS_ACTIVE===1; if(isActive) activeCount++;
+        alarmBody.innerHTML+=`<tr><td>${device.DEVICE_NAME}</td><td>${a.READING??'-'}</td><td>${a.ALARM_DATE} ${a.ALARM_TIME}</td><td><span class="badge ${isActive?'bg-danger':'bg-success'}">${isActive?'Active':'Resolved'}</span></td></tr>`;
+      });
+      document.getElementById("activeAlarmCount").textContent = activeCount;
+
+    }catch(err){console.error(err);}
+  }
+
+  updateDeviceGraph();
+  if(liveUpdateInterval) clearInterval(liveUpdateInterval);
+  liveUpdateInterval=setInterval(updateDeviceGraph, 10000);
+}
+
+// Initialize dashboard
+(async function initDashboard() {
+  await loadOrganizations();
+})();
+</script>
+</body>
+</html>
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IoT Multi-Level Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<style>
+body { margin:0; padding-top:70px; display:flex; }
+.navbar { background: linear-gradient(90deg, #0d6efd, #0a58ca); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.navbar .nav-link { color:#fff !important; }
+.sidebar { width:260px; background:#f8f9fa; border-right:1px solid #dee2e6; padding:20px; position:fixed; top:70px; bottom:0; display:flex; flex-direction:column; overflow:hidden; }
+.sidebar-content { overflow-y:auto; flex:1; padding-right:5px; }
+.sidebar h5 { font-weight:600; margin-bottom:15px; }
+.sidebar .form-select { margin-bottom:15px; border-radius:8px; }
+.sidebar .summary-card { min-height:60px; padding:2px 4px; margin-bottom:10px; font-size:0.8rem; display:flex; flex-direction:column; justify-content:center; align-items:center; border-radius:12px; color:#fff; }
+.sidebar .summary-card i { font-size:1.4rem; margin-bottom:4px; }
+.sidebar .summary-card h6 { font-size:0.85rem; margin-bottom:2px; }
+.sidebar .summary-card p { font-size:0.9rem; margin:0; font-weight:600; }
+.content { margin-left:260px; padding:20px; flex:1; overflow-x:hidden; }
+#deviceTypeCards { display:flex; flex-wrap:wrap; gap:15px; justify-content:center; margin-top:50px; }
+.device-type-card { flex:1 1 calc(33.33% - 10px); max-width:calc(33.33% - 10px); height:120px; background:linear-gradient(135deg,#0d6efd,#6610f2); color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; transition:0.3s; }
+.device-type-card:hover { transform:translateY(-5px); box-shadow:0 6px 15px rgba(0,0,0,0.2); }
+.device-type-card.disabled { background:#e0e0e0 !important; color:#888 !important; cursor:not-allowed; }
 .device-center { display:flex; justify-content:center; margin-top:20px; }
 .device-card { padding:10px; border-radius:12px; color:white; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); margin-bottom:10px; max-width:300px; width:100%; }
 .device-card.bg-success { background:#fff; border:2px solid #28a745; color:#000; min-height:60px; max-width:400px; }
@@ -354,4 +758,4 @@ async function openDeviceDashboard(categoryId){
 </script>
 
 </body>
-</html>
+</html> -->
