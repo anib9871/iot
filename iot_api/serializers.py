@@ -119,7 +119,8 @@ class DeviceAlarmLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeviceAlarmLog
-        fields = '__all__'
+        fields = ["id","ALARM_TIME","NORMALIZED_TIME","DEVICE_ID","SENSOR_ID","PARAMETER_ID","ALARM_DATE","READING","NORMALIZED_DATE","SMS_DATE","SMS_TIME","EMAIL_DATE",	"EMAIL_TIME","NORMALIZED_SMS_DATE",	"NORMALIZED_SMS_TIME","NORMALIZED_EMAIL_DATE","NORMALIZED_EMAIL_TIME","ORGANIZATION_ID","CENTRE_ID", "IS_ACTIVE"]
+
 
 
 # UOM
