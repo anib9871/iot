@@ -233,163 +233,196 @@ document.getElementById("centreSelect").addEventListener("change",e=>loadDevices
 
 // ----- Device Dashboard -----
 async function openDeviceDashboard(categoryId) {
-  currentCategoryId = categoryId;
-  document.getElementById("deviceTypeCards").innerHTML = "";
-  document.getElementById("deviceDetailsContainer").style.display = "block";
+    currentCategoryId = categoryId;
+    document.getElementById("deviceTypeCards").innerHTML = "";
+    document.getElementById("deviceDetailsContainer").style.display = "block";
 
-  const category = allCategories.find(c => c.CATEGORY_ID === categoryId);
-  document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
+    const category = allCategories.find(c => c.CATEGORY_ID === categoryId);
+    document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
 
-  const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
-  const deviceList = document.getElementById("deviceList");
-  deviceList.innerHTML = "";
+    const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
+    const deviceList = document.getElementById("deviceList");
+    deviceList.innerHTML = "";
 
-  // --- fetch master parameters from API ---
-  let masterparameter = [];
-  try {
-    const response = await fetch('/api/masterparameter'); // yaha apni API URL daal
-    masterparameter = await response.json();
-  } catch (err) {
-    console.error("Failed to fetch master parameters:", err);
-  }
+    // Fetch master parameters & UOMs
+    let masterparameter = [], masteruom = [];
+    try {
+        masterparameter = await (await fetch(API.masterparameter)).json();
+        masteruom = await (await fetch(API.masteruom)).json();
+    } catch (err) {
+        console.error("Failed to fetch master data:", err);
+    }
 
-  devices.forEach(d => {
-    const temp = parseFloat(d.reading || 0).toFixed(2);
-    const color = temp > 70 ? 'bg-danger' : 'bg-success';
+    // Create device cards placeholders
+    devices.forEach(d => {
+        const div = document.createElement("div");
+        div.className = "device-card bg-success"; // default
+        div.innerHTML = `<h6>${d.DEVICE_NAME}</h6><p id="currentTemp_${d.DEVICE_ID}">--</p>`;
+        deviceList.appendChild(div);
+    });
 
-    // find UOM from masterParameters
-    const param = masterparameter.find(p => p.PARAMETER_ID === d.PARAMETER_ID);
-    const uom = param ? param.UOM_NAME : '';
+    // Function to update graph and device temps
+    async function updateDeviceGraph() {
+        try {
+            const now = new Date();
+            // Default: last 24 hours
+            let start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            let end = now;
 
-    const div = document.createElement("div");
-    div.className = "device-card " + color;
-    div.innerHTML = `<h6>${d.DEVICE_NAME}</h6><p id="currentTemp">${temp} ${uom}</p>`;
+            // Override if user has manually selected
+            const startInput = document.getElementById("startDateTime").value;
+            const endInput = document.getElementById("endDateTime").value;
+            if (startInput) start = new Date(startInput);
+            if (endInput) end = new Date(endInput);
 
-    deviceList.appendChild(div);
-  });
+            let url = API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
+            const readingsDataRaw = await (await fetch(url)).json();
+            const readingsData = readingsDataRaw.filter(r => {
+                const dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
+                return devices.map(d => d.DEVICE_ID).includes(r.DEVICE_ID) && dt >= start && dt <= end;
+            });
 
-  async function updateDeviceGraph(){
-    try{
-      const start = document.getElementById("startDateTime").value ? new Date(document.getElementById("startDateTime").value) : null;
-      const end = document.getElementById("endDateTime").value ? new Date(document.getElementById("endDateTime").value) : null;
+            // Map readings per device
+            const deviceMap = {};
+            devices.forEach(d => deviceMap[d.DEVICE_ID] = []);
+readingsData.forEach(r => {
+    let dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
+    // Round to nearest 30 min
+    dt.setMinutes(Math.floor(dt.getMinutes() / 30) * 30, 0, 0);
+    deviceMap[r.DEVICE_ID].push({ x: dt, y: parseFloat(r.READING) });
+});
 
-      let url = API.devicereadinglog+`?centre=${currentCentreId}&category=${currentCategoryId}`;
-      const readingsDataRaw = await (await fetch(url)).json();
-      const readingsData = readingsDataRaw.filter(r=>{
-        const dt=new Date(r.READING_DATE+"T"+r.READING_TIME);
-        return devices.map(d=>d.DEVICE_ID).includes(r.DEVICE_ID) && (!start || dt>=start) && (!end || dt<=end);
-      });
+// Remove duplicates after rounding
+devices.forEach(d => {
+    const seen = new Set();
+    deviceMap[d.DEVICE_ID] = deviceMap[d.DEVICE_ID].filter(r => {
+        const t = r.x.getTime();
+        if (seen.has(t)) return false;
+        seen.add(t);
+        return true;
+    });
+});
 
-      const deviceMap={}; devices.forEach(d=>deviceMap[d.DEVICE_ID]=[]);
-      readingsData.forEach(r=>{
-        let dt=new Date(r.READING_DATE+"T"+r.READING_TIME);
-        dt.setMinutes(Math.floor(dt.getMinutes()/10)*10,0,0);
-        deviceMap[r.DEVICE_ID].push({x:dt,y:parseFloat(r.READING)});
-      });
+            // Fill missing timestamps
+            devices.forEach(d => {
+                let current = new Date(start);
+                while (current <= end) {
+                    if (!deviceMap[d.DEVICE_ID].some(r => r.x.getTime() === current.getTime())) {
+                        deviceMap[d.DEVICE_ID].push({ x: new Date(current), y: null });
+                    }
+                    current = new Date(current.getTime() + 10 * 60 * 1000);
+                }
+                deviceMap[d.DEVICE_ID].sort((a, b) => a.x - b.x);
+            });
 
-      if(start && end){
-        devices.forEach(d=>{
-          let current=new Date(start);
-          while(current<=end){
-            if(!deviceMap[d.DEVICE_ID].some(r=>r.x.getTime()===current.getTime())){
-              deviceMap[d.DEVICE_ID].push({x:new Date(current),y:null});
+            // Update chart datasets
+            const ctx = document.getElementById("deviceGraph").getContext('2d');
+            const datasets = devices.map(d => {
+                const grad = ctx.createLinearGradient(0, 0, 700, 0);
+                grad.addColorStop(0, "#42a5f5");
+                grad.addColorStop(1, "#66bb6a");
+                return {
+                    label: d.DEVICE_NAME,
+                    data: deviceMap[d.DEVICE_ID],
+                    borderColor: grad,
+                    backgroundColor: "rgba(66,165,245,0.15)",
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: "#fff",
+                    pointBorderWidth: 2,
+                    borderWidth: 3
+                };
+            });
+
+            if (window.deviceChart) {
+                window.deviceChart.data.datasets = datasets;
+                window.deviceChart.update();
+            } else {
+                window.deviceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'nearest', intersect: false },
+                        plugins: {
+                            legend: { display: true, position: 'top', labels: { font: { size: 13 }, padding: 15 } },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: c => c.dataset.label + ": " + (c.parsed.y != null ? c.parsed.y.toFixed(2) : "-")
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { tooltipFormat: 'dd-MM-yyyy HH:mm', displayFormats: { hour: 'dd MMM HH:mm', minute: 'HH:mm' } },
+                                title: { display: true, text: 'Date & Time', font: { size: 14, weight: 'bold' } },
+                                    ticks: {
+        autoSkip: true,
+        maxTicksLimit: 12, // 12 ticks maximum on x-axis
+        font: { size: 13 }
+    },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            y: {
+                                min: 0,
+                                max: 10,
+                                title: { display: true, text: 'Value', font: { size: 14, weight: 'bold' } },
+                                ticks: { stepSize: 1, font: { size: 12 } },
+                                grid: { color: 'rgba(0,0,0,0.05)', borderDash: [5, 5] }
+                            }
+                        },
+                        elements: { line: { tension: 0.3, borderWidth: 3 }, point: { hoverRadius: 8, radius: 6 } }
+                    }
+                });
             }
-            current=new Date(current.getTime()+10*60*1000);
-          }
-          deviceMap[d.DEVICE_ID].sort((a,b)=>a.x-b.x);
-        });
-      }
 
-      const ctx = document.getElementById("deviceGraph").getContext('2d');
-      const datasets = devices.map(d => {
-          const grad = ctx.createLinearGradient(0,0,700,0);
-          grad.addColorStop(0,"#42a5f5");
-          grad.addColorStop(1,"#66bb6a");
-          return {
-              label: d.DEVICE_NAME,
-              data: deviceMap[d.DEVICE_ID],
-              borderColor: grad,
-              backgroundColor: "rgba(66,165,245,0.15)",
-              fill: true,
-              tension: 0.3,
-              pointRadius: 6,
-              pointHoverRadius: 8,
-              pointBackgroundColor: "#fff",
-              pointBorderWidth: 2,
-              borderWidth: 3
-          };
-      });
+            // Update current temps + UOM
+            readingsData.forEach(r => {
+                const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(r.PARAMETER_ID));
+                const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
+                const uom = uomObj?.UOM_NAME || '–';
+                const el = document.getElementById(`currentTemp_${r.DEVICE_ID}`);
+                if (el) {
+                    el.textContent = parseFloat(r.READING).toFixed(2) + " " + uom;
+                    el.parentElement.className = parseFloat(r.READING) > 70 ? "device-card bg-danger" : "device-card bg-success";
+                }
+            });
 
-      if(window.deviceChart){
-          window.deviceChart.data.datasets = datasets;
-          window.deviceChart.update();
-      } else {
-          window.deviceChart = new Chart(ctx, {
-              type: 'line',
-              data: { datasets },
-              options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  interaction: { mode: 'nearest', intersect: false },
-                  plugins: {
-                      legend: { display: true, position: 'top', labels: { font: { size: 13 }, padding: 15 } },
-                      tooltip: {
-                          mode: 'index',
-                          intersect: false,
-                          callbacks: { label: c => c.dataset.label + ": " + (c.parsed.y != null ? c.parsed.y.toFixed(2) + " °C" : "-") }
-                      }
-                  },
-                  scales: {
-                      x: {
-                          type: 'time',
-                          time: { tooltipFormat: 'dd-MM-yyyy HH:mm', displayFormats: { hour:'dd MMM HH:mm', minute:'HH:mm' } },
-                          title: { display: true, text: 'Date & Time', font: { size: 14, weight: 'bold' } },
-                          ticks: { autoSkip: true, maxRotation: 45, minRotation: 30 },
-                          grid: { color: 'rgba(0,0,0,0.05)' }
-                      },
-                      y: {
-                          min: 0,
-                          max: 10,
-                          title: { display: true, text: 'Temperature (°C)', font: { size: 14, weight: 'bold' } },
-                          ticks: { stepSize: 1, font: { size: 12 } },
-                          grid: { color: 'rgba(0,0,0,0.05)', borderDash: [5,5] }
-                      }
-                  },
-                  elements: {
-                      line: { tension: 0.3, borderWidth: 3 },
-                      point: { hoverRadius: 8, radius: 6 }
-                  }
-              }
-          });
-      }
+            // Update alarms (same as before)
+            let alarmUrl = API.devicealarmlog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
+            const alarmsRaw = await (await fetch(alarmUrl)).json();
+            const alarms = alarmsRaw.filter(a => {
+                const dt = new Date(a.ALARM_DATE + "T" + a.ALARM_TIME);
+                return devices.map(d => d.DEVICE_ID).includes(a.DEVICE_ID) && dt >= start && dt <= end;
+            });
 
-      document.getElementById("currentTemp").textContent = readingsData.length ? parseFloat(readingsData.at(-1).READING).toFixed(2)+" °C" : "0 °C";
+            const alarmBody = document.getElementById("alarmLog"); 
+            alarmBody.innerHTML = ""; 
+            let activeCount = 0;
+            alarms.sort((a, b) => new Date(b.ALARM_DATE + "T" + b.ALARM_TIME) - new Date(a.ALARM_DATE + "T" + a.ALARM_TIME));
+            alarms.forEach(a => {
+                const device = devices.find(d => d.DEVICE_ID === a.DEVICE_ID); 
+                if (!device) return;
+                const isActive = a.IS_ACTIVE === 1; 
+                if (isActive) activeCount++;
+                alarmBody.innerHTML += `<tr><td>${device.DEVICE_NAME}</td><td>${a.READING ?? '-'}</td><td>${a.ALARM_DATE} ${a.ALARM_TIME}</td><td><span class="badge ${isActive ? 'bg-danger' : 'bg-success'}">${isActive ? 'Active' : 'Resolved'}</span></td></tr>`;
+            });
+            document.getElementById("alarm24h").textContent = alarms.filter(a => now - new Date(a.ALARM_DATE + "T" + a.ALARM_TIME) <= 24 * 60 * 60 * 1000).length;
+            document.getElementById("activeAlarmCount").textContent = activeCount;
 
-      let alarmUrl = API.devicealarmlog+`?centre=${currentCentreId}&category=${currentCategoryId}`;
-      const alarmsRaw = await (await fetch(alarmUrl)).json();
-      const alarms = alarmsRaw.filter(a=>{
-        const dt=new Date(a.ALARM_DATE+"T"+a.ALARM_TIME);
-        return devices.map(d=>d.DEVICE_ID).includes(a.DEVICE_ID) && (!start || dt>=start) && (!end || dt<=end);
-      });
+        } catch (err) { console.error(err); }
+    }
 
-      const now = new Date();
-      document.getElementById("alarm24h").textContent = alarms.filter(a=>now-new Date(a.ALARM_DATE+"T"+a.ALARM_TIME)<=24*60*60*1000).length;
-
-      const alarmBody = document.getElementById("alarmLog"); alarmBody.innerHTML=""; let activeCount=0;
-      alarms.sort((a,b)=>new Date(b.ALARM_DATE+"T"+b.ALARM_TIME)-new Date(a.ALARM_DATE+"T"+a.ALARM_TIME));
-      alarms.forEach(a=>{
-        const device=devices.find(d=>d.DEVICE_ID===a.DEVICE_ID); if(!device)return;
-        const isActive = a.IS_ACTIVE===1; if(isActive) activeCount++;
-        alarmBody.innerHTML+=`<tr><td>${device.DEVICE_NAME}</td><td>${a.READING??'-'}</td><td>${a.ALARM_DATE} ${a.ALARM_TIME}</td><td><span class="badge ${isActive?'bg-danger':'bg-success'}">${isActive?'Active':'Resolved'}</span></td></tr>`;
-      });
-      document.getElementById("activeAlarmCount").textContent = activeCount;
-
-    }catch(err){console.error(err);}
-  }
-
-  updateDeviceGraph();
-  if(liveUpdateInterval) clearInterval(liveUpdateInterval);
-  liveUpdateInterval=setInterval(updateDeviceGraph, 10000);
+    // Initial update & live interval
+    updateDeviceGraph();
+    if (liveUpdateInterval) clearInterval(liveUpdateInterval);
+    liveUpdateInterval = setInterval(updateDeviceGraph, 10000);
 }
 
 // Initialize dashboard
