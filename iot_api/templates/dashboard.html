@@ -164,7 +164,7 @@ body { background: #f1f3f8; font-family: 'Segoe UI', sans-serif; padding-top: 70
 // const BASE_URL = `${window.location.protocol}//${window.location.hostname}:8080/api/`; // ✅ Dynamic Base URL
 // const BASE_URL = "http://192.168.1.6:8000/api/"; // direct IP
 // const BASE_URL = "http://192.168.0.100:8000"; // direct IP
-const BASE_URL = "https://iot-y8pi.onrender.com"; // direct IP; // direct IP
+const BASE_URL = "https://iot-y8pi.onrender.com"; // direct IP
 // const BASE_URL = "   https://16de7fd271a3.ngrok-free.app"; // direct IP
 // const BASE_URL = "https://1vs2c96b-8000.inc1.devtunnels.ms"; // direct IP
 
@@ -220,8 +220,10 @@ const HEADER_LABELS = {
   ROLE_ID: "ROLE NAME",
   UOM_ID: "UNIT",
   USER_ID: "USER NAME",
-  CATEGORY_ID: "CATEGORY NAME"
+  CATEGORY_ID: "CATEGORY NAME",
 };
+
+
 
 
 // ===== Primary keys per table =====
@@ -308,7 +310,10 @@ async function loadDropdowns(){
 // ===== load & draw table =====
 async function loadTable(table) {
   currentTable = normalizeKey(table);
-  if (!API[currentTable]) { console.error("No API for:", table, currentTable); return; }
+  if (!API[currentTable]) {
+    console.error("No API for:", table, currentTable);
+    return;
+  }
 
   document.getElementById('tableTitle').innerText = formatTitle(table);
 
@@ -342,23 +347,33 @@ async function loadTable(table) {
   const tbody = tableEl.querySelector('tbody');
   thead.innerHTML = tbody.innerHTML = "";
 
-  const schema  = FIELD_SCHEMAS[currentTable] || [];
-  const headers = currentData.length ? Object.keys(currentData[0]) : schema;
+  let headers = currentData.length ? Object.keys(currentData[0]) : (FIELD_SCHEMAS[currentTable] || []);
   const pk = PRIMARY_KEYS[currentTable] || headers[0];
+
+  // ✅ Add extra ID field for master tables
+  if (currentTable === "masterdevices" && !headers.includes("DEVICE_ID")) headers.push("DEVICE_ID");
+  if (currentTable === "mastersensor" && !headers.includes("SENSOR_ID")) headers.push("SENSOR_ID");
+  if (currentTable === "masterparameter" && !headers.includes("PARAMETER_ID")) headers.push("PARAMETER_ID");
 
   // ✅ Render table headers with friendly names
   const displayHeaders = headers.map(h => {
-    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog" ].includes(currentTable) && h === pk) {
+    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog"].includes(currentTable) && h === pk) {
       return "S_NO";
     }
     return HEADER_LABELS[h] || h;
   });
 
+  // ✅ Add extra header for master IDs
+if (currentTable === "masterdevices") displayHeaders.push("DEVICE_ID");
+if (currentTable === "mastersensor") displayHeaders.push("SENSOR_ID");
+if (currentTable === "masterparameter") displayHeaders.push("PARAMETER_ID");
+
+
   thead.innerHTML = `<tr>${
     displayHeaders.filter((h,i) => headers[i] !== "PASSWORD").map(h => `<th>${h}</th>`).join("")
-  }${ (currentTable === "devicealarmlog" || currentTable === "devicereadinglog") ? "" : "<th>Actions</th>" }</tr>`;
+  }${ (currentTable === "devicealarmlog" || currentTable === "devicereadinglog") ? "" : "<th>Actions</th>" }
+   </tr>`;
 
-  // ✅ Date formatter
   function formatDate(dateStr) {
     if (!dateStr) return "";
     const options = { year: "numeric", month: "short", day: "2-digit" };
@@ -366,87 +381,97 @@ async function loadTable(table) {
   }
 
   // ----- Render table body -----
-  if(currentData.length){
-    tbody.innerHTML = currentData.map((row, rowIdx) => {
-      const rowCells = headers.filter(h => h !== "PASSWORD").map(h => {
-        let cellVal = row[h] ?? "";
+  // ----- Render table body -----
+if (currentData.length) {
+  tbody.innerHTML = currentData.map((row, rowIdx) => {
+    let rowCells = headers.filter(h => h !== "PASSWORD").map(h => {
+      let cellVal = row[h] ?? "";
 
-        // PK → show 1-based index
-        if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory"].includes(currentTable)) {
-          return `<td>${rowIdx + 1}</td>`;
-        }
-
-        // Map IDs to Names
-        if (h === "ORG_ID" || h === "ORGANIZATION_ID") {
-          const org = (dropdownData.orgs || []).find(o => o.ORGANIZATION_ID == row[h]);
-          cellVal = org ? org.ORGANIZATION_NAME : row[h];
-        }
-        if (h === "CENTRE_ID") {
-          const centre = (dropdownData.centres || []).find(c => c.CENTRE_ID == row[h]);
-          cellVal = centre ? centre.CENTRE_NAME : row[h];
-        }
-        if (h === "CATEGORY_ID") {
-          const cat = (dropdownData.devicescategory || []).find(dc => dc.CATEGORY_ID == row[h]);
-          cellVal = cat ? cat.CATEGORY_NAME : row[h];
-        }
-        if (h === "DEVICE_ID") {
-          const device = (dropdownData.devices || []).find(d => d.DEVICE_ID == row[h]);
-          cellVal = device ? device.DEVICE_NAME : row[h];
-        }
-        if (h === "SENSOR_ID") {
-          const sensor = (dropdownData.sensors || []).find(s => s.SENSOR_ID == row[h]);
-          cellVal = sensor ? sensor.SENSOR_NAME : row[h];
-        }
-        if (h === "PARAMETER_ID") {
-          const param = (dropdownData.parameters || []).find(p => p.PARAMETER_ID == row[h]);
-          cellVal = param ? param.PARAMETER_NAME : row[h];
-        }
-        if (h === "USER_ID") {
-          const user = (dropdownData.user || []).find(u => u.USER_ID == row[h]);
-          cellVal = user ? user.USERNAME : row[h];
-        }
-        if (h === "ROLE_ID") {
-          const role = (dropdownData.roles || []).find(r => r.ROLE_ID == row[h]);
-          cellVal = role ? role.ROLE_NAME : row[h];
-        }
-        if (h === "UOM_ID") {
-          const uom = (dropdownData.uoms || []).find(u => u.UOM_ID == row[h]);
-          cellVal = uom ? uom.UOM_NAME : row[h]; // <-- name show karega
-        }
-        // Format date
-        if (/^\d{4}-\d{2}-\d{2}$/.test(cellVal)) {
-          cellVal = formatDate(cellVal);
-        }
-
-        return `<td>${cellVal}</td>`;
-      }).join("");
-
-      // Add button visibility
-      const addBtn = document.getElementById("addBtn");
-      if(currentTable === "devicereadinglog" || currentTable === "devicealarmlog"){
-          addBtn.style.display = "none";
-      } else {
-          addBtn.style.display = "inline-block";
+      // PK → S_NO numbering
+      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory"].includes(currentTable)) {
+        return `<td>${rowIdx + 1}</td>`;
       }
 
-      const idVal = row[pk]; // real ID for edit/delete
-      const noActions = (currentTable === "devicealarmlog" || currentTable === "devicereadinglog");
+      // Map IDs → Names
+      if (h === "ORG_ID" || h === "ORGANIZATION_ID") {
+        const org = (dropdownData.orgs || []).find(o => o.ORGANIZATION_ID == row[h]);
+        cellVal = org ? org.ORGANIZATION_NAME : row[h];
+      }
+      if (h === "CENTRE_ID") {
+        const centre = (dropdownData.centres || []).find(c => c.CENTRE_ID == row[h]);
+        cellVal = centre ? centre.CENTRE_NAME : row[h];
+      }
+      if (h === "CATEGORY_ID") {
+        const cat = (dropdownData.devicescategory || []).find(dc => dc.CATEGORY_ID == row[h]);
+        cellVal = cat ? cat.CATEGORY_NAME : row[h];
+      }
+      if (h === "DEVICE_ID" && currentTable !== "masterdevices") {
+        const device = (dropdownData.devices || []).find(d => d.DEVICE_ID == row[h]);
+        cellVal = device ? device.DEVICE_NAME : row[h];
+      }
+      if (h === "SENSOR_ID" && currentTable !== "mastersensor") {
+        const sensor = (dropdownData.sensors || []).find(s => s.SENSOR_ID == row[h]);
+        cellVal = sensor ? sensor.SENSOR_NAME : row[h];
+      }
+      if (h === "PARAMETER_ID" && currentTable !== "masterparameter") {
+        const param = (dropdownData.parameters || []).find(p => p.PARAMETER_ID == row[h]);
+        cellVal = param ? param.PARAMETER_NAME : row[h];
+      }
+      if (h === "USER_ID") {
+        const user = (dropdownData.user || []).find(u => u.USER_ID == row[h]);
+        cellVal = user ? user.USERNAME : row[h];
+      }
+      if (h === "ROLE_ID") {
+        const role = (dropdownData.roles || []).find(r => r.ROLE_ID == row[h]);
+        cellVal = role ? role.ROLE_NAME : row[h];
+      }
+      if (h === "UOM_ID") {
+        const uom = (dropdownData.uoms || []).find(u => u.UOM_ID == row[h]);
+        cellVal = uom ? uom.UOM_NAME : row[h];
+      }
 
-      return `<tr>${rowCells}${noActions ? "" : `
-        <td>
-          <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger" onclick='deleteRow(${JSON.stringify(idVal)})'><i class="bi bi-trash"></i></button>
-        </td>`}
-      </tr>`;
+      // Format date
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cellVal)) {
+        const options = { year: "numeric", month: "short", day: "2-digit" };
+        cellVal = new Date(cellVal).toLocaleDateString("en-GB", options);
+      }
+
+      return `<td>${cellVal}</td>`;
     }).join("");
-  } else {
-    if(headers.length){
-      tbody.innerHTML = `<tr><td colspan="${headers.length+1}" class="text-center text-muted">No records found</td></tr>`;
+
+    // ✅ Manually append ID column for master tables
+    if (currentTable === "masterdevices") rowCells += `<td>${row.DEVICE_ID || ""}</td>`;
+    if (currentTable === "mastersensor") rowCells += `<td>${row.SENSOR_ID || ""}</td>`;
+    if (currentTable === "masterparameter") rowCells += `<td>${row.PARAMETER_ID || ""}</td>`;
+
+    const addBtn = document.getElementById("addBtn");
+    if (currentTable === "devicereadinglog" || currentTable === "devicealarmlog") {
+      addBtn.style.display = "none";
+    } else {
+      addBtn.style.display = "inline-block";
     }
+
+    const idVal = row[pk];
+    const noActions = (currentTable === "devicealarmlog" || currentTable === "devicereadinglog");
+
+    return `<tr>${rowCells}${noActions ? "" : `
+      <td>
+        <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-danger" onclick='deleteRow(${JSON.stringify(idVal)})'><i class="bi bi-trash"></i></button>
+      </td>`}
+    </tr>`;
+  }).join("");
+} else {
+  if (headers.length) {
+    tbody.innerHTML = `<tr><td colspan="${headers.length + 1}" class="text-center text-muted">No records found</td></tr>`;
   }
+}
+
 
   const section = document.getElementById("tableSection");
-  if(section){ section.scrollIntoView({ behavior: "smooth" }); }
+  if (section) {
+    section.scrollIntoView({ behavior: "smooth" });
+  }
 }
 // ===== Modal =====
 function addRow(){ openModal({}); }
