@@ -267,32 +267,75 @@ document.getElementById("centreSelect").addEventListener("change",e=>loadDevices
 // ----- Device Dashboard -----
 // ----- Device Dashboard -----
 async function openDeviceDashboard(categoryId) {
-    currentCategoryId = categoryId;
-    document.getElementById("deviceTypeCards").innerHTML = "";
-    document.getElementById("deviceDetailsContainer").style.display = "block";
+  currentCategoryId = categoryId;
+  document.getElementById("deviceTypeCards").innerHTML = "";
+  document.getElementById("deviceDetailsContainer").style.display = "block";
 
-    const category = allCategories.find(c => c.CATEGORY_ID === categoryId);
-    document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
+  const category = allCategories.find(c => c.CATEGORY_ID === categoryId);
+  document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
 
-    const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
-    const deviceList = document.getElementById("deviceList");
-    deviceList.innerHTML = "";
+  const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
+  const deviceList = document.getElementById("deviceList");
+  deviceList.innerHTML = "";
 
-    // Create device cards placeholders
-    devices.forEach(d => {
-        const div = document.createElement("div");
-        div.className = "device-card bg-secondary"; // initially grey
-        div.innerHTML = `
-            <h6 style="color: white;">${d.DEVICE_NAME}</h6>
-            <p id="currentTemp_${d.DEVICE_ID}" style="color: white; font-weight: 600;">Click to view</p>
-        `;
-        div.style.cursor = "pointer";
+  // Fetch master parameters & UOMs
+  const [masterparameter, masteruom] = await Promise.all([
+    fetch(API.masterparameter).then(r => r.json()),
+    fetch(API.masteruom).then(r => r.json())
+  ]);
 
-        // Click to load readings for this device
-        div.addEventListener("click", () => loadDeviceReadings(d));
+  // Fetch readings for the category
+  let url = API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
+  const readingsDataRaw = await (await fetch(url)).json();
 
-        deviceList.appendChild(div);
-    });
+  // Show each device card with its latest value
+  devices.forEach(device => {
+    const div = document.createElement("div");
+    div.className = "device-card bg-secondary";
+    div.style.cursor = "pointer";
+
+    // Latest reading for that device
+    // const readings = readingsDataRaw
+    //   .filter(r => r.DEVICE_ID === device.DEVICE_ID)
+    //   .sort((a, b) => new Date(`${a.READING_DATE}T${a.READING_TIME}`) - new Date(`${b.READING_DATE}T${b.READING_TIME}`));
+
+    const readings = readingsDataRaw
+  .filter(r => r.DEVICE_ID === device.DEVICE_ID)
+  .filter(r => {
+    const param = masterparameter.find(p => p.PARAMETER_ID === r.PARAMETER_ID);
+    return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
+  })
+  .sort((a, b) => new Date(`${a.READING_DATE}T${a.READING_TIME}`) - new Date(`${b.READING_DATE}T${b.READING_TIME}`));
+
+
+    const latest = readings[readings.length - 1];
+    let readingText = "Offline";
+    let cardClass = "device-card bg-secondary";
+
+    if (latest) {
+      const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(latest.PARAMETER_ID));
+      const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
+      const uom = uomObj?.UOM_NAME || '';
+      const val = parseFloat(latest.READING).toFixed(2);
+
+      readingText = `${val} ${uom}`;
+      const upper = param?.UPPER_THRESHOLD ?? Infinity;
+      const lower = param?.LOWER_THRESHOLD ?? -Infinity;
+      if (val > upper || val < lower) cardClass = "device-card bg-danger";
+      else cardClass = "device-card bg-success";
+    }
+
+    div.className = cardClass;
+    div.innerHTML = `
+      <h6>${device.DEVICE_NAME}</h6>
+      <p id="currentTemp_${device.DEVICE_ID}" style="font-weight:600;">${readingText}</p>
+    `;
+
+    // Click to view graph & alarms
+    div.addEventListener("click", () => loadDeviceReadings(device));
+
+    deviceList.appendChild(div);
+  });
 }
 
 // Function to load readings, graph, and alarms for a single device
@@ -318,12 +361,40 @@ async function loadDeviceReadings(device) {
     // Fetch readings
     let url = API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
     const readingsDataRaw = await (await fetch(url)).json();
-    const readingsData = readingsDataRaw.filter(r => r.DEVICE_ID === deviceId);
+    // const readingsData = readingsDataRaw.filter(r => r.DEVICE_ID === deviceId);
+    
+    const readingsData = readingsDataRaw
+  .filter(r => r.DEVICE_ID === deviceId)
+  .filter(r => {
+    const param = masterparameter.find(p => p.PARAMETER_ID === r.PARAMETER_ID);
+    return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
+  });
 
-    const dataPoints = readingsData.map(r => {
-        const dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
-        return { x: dt, y: parseFloat(r.READING), paramId: r.PARAMETER_ID };
-    });
+    // const dataPoints = readingsData.map(r => {
+    //     const dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
+    //     return { x: dt, y: parseFloat(r.READING), paramId: r.PARAMETER_ID };
+    // });
+
+    const dataPoints = readingsData
+  .map(r => {
+    const dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
+    return { x: dt, y: parseFloat(r.READING), paramId: r.PARAMETER_ID };
+  })
+  .filter(p => {
+    const param = masterparameter.find(pp => String(pp.PARAMETER_ID) === String(p.paramId));
+    const name = param?.PARAMETER_NAME?.toLowerCase() || "";
+
+    // ✅ Check for parameter types
+    const isVOC = name.includes("voc");
+    const isRefricheck = name.includes("refricheck");
+
+    // ✅ Apply limits: VOC ≤ 2000, Refricheck ≤ 15
+    if (isVOC && p.y <= 2000) return true;
+    if (isRefricheck && p.y <= 15) return true;
+
+    return false; // ignore everything else
+  });
+
 
     // Update device reading text
     const latest = dataPoints[dataPoints.length - 1];
@@ -352,7 +423,7 @@ async function loadDeviceReadings(device) {
                 backgroundColor: "#007bff",
                 tension: 0.3,
                 fill: false,
-                pointRadius: 4,
+                pointRadius: 2,
                 pointHoverRadius: 6
             }]
         },
@@ -403,7 +474,6 @@ async function loadDeviceReadings(device) {
 </script>
 </body>
 </html>
-
 
 
 <!-- <!DOCTYPE html>
