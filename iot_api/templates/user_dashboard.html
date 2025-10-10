@@ -29,25 +29,9 @@ body { margin:0; padding-top:70px; display:flex; }
 .device-card.bg-success { background:#fff; border:2px solid #28a745; color:#000; min-height:60px; max-width:400px; }
 .device-card.bg-danger { background:#fff; border:2px solid #dc3545; color:#000; min-height:60px; max-width:400px; }
 #deviceDetailsContainer { display:none; }
-#deviceList .device-card { width:100%; margin-bottom:8px; }
+#deviceList { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: flex-start; margin-bottom: 20px; }
+#deviceList .device-card { flex: 1 1 200px; max-width: 250px; min-width: 180px; }
 #alarmLog tr td { vertical-align:middle; }
-
-#deviceList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-start;
-  align-items: flex-start;
-  margin-bottom: 20px;
-}
-
-#deviceList .device-card {
-  flex: 1 1 200px; /* min width 200px, adjusts automatically */
-  max-width: 250px;
-  min-width: 180px;
-}
-
-
 </style>
 </head>
 <body>
@@ -98,21 +82,13 @@ body { margin:0; padding-top:70px; display:flex; }
   <div id="deviceDetailsContainer">
     <button class="btn btn-sm btn-secondary mb-3" onclick="backToDashboard()">← Back</button>
     <h4 id="deviceTypeTitle"></h4>
-
     <div id="deviceList" class="mb-3"></div>         
-
     <div style="max-width:700px;margin:auto;display:flex;gap:15px;align-items:flex-start;">
       <div style="flex:0 0 150px;display:flex;flex-direction:column;gap:10px;margin-left:-200px;">
-        <!-- <div style="background:#0d6efd;color:#fff;border-radius:10px;padding:8px;text-align:center;">
-          <h6 style="font-size:0.8rem;margin-bottom:4px;">Current Temp</h6>
-          <p id="currentTemp" class="fs-6 fw-bold">0 °C</p>
-        </div> -->
-            <div style="max-width:250px;background:#dc3545;color:#fff;border-radius:10px;padding:8px;text-align:center;" class="mb-3">
+        <div style="max-width:250px;background:#dc3545;color:#fff;border-radius:10px;padding:8px;text-align:center;" class="mb-3">
           <h6 style="font-size:0.8rem;margin-bottom:4px;">Total Alarms (24h)</h6>
           <p id="alarm24h" class="fs-6 fw-bold">0</p>
         </div>
-
-
       </div>
       <div style="flex:1;background:#fff;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:15px;">
         <canvas id="deviceGraph" style="max-height:300px;"></canvas>
@@ -122,7 +98,6 @@ body { margin:0; padding-top:70px; display:flex; }
     <h5 class="mt-4 d-flex justify-content-between align-items-center">
       Alarm Log <span class="badge bg-danger" id="activeAlarmCount">0</span>
     </h5>
-    <!-- <input type="text" id="alarmSe rch" class="form-control mb-2" placeholder="Search alarms..."> -->
     <table class="table table-striped">
       <thead><tr><th>Device</th><th>Alarm</th><th>Time</th><th>Status</th></tr></thead>
       <tbody id="alarmLog"></tbody>
@@ -132,7 +107,6 @@ body { margin:0; padding-top:70px; display:flex; }
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Base API
 const BASE_URL = "https://iot-y8pi.onrender.com";
 const API = {
   masterorganizations: BASE_URL + "/api/masterorganization/",
@@ -142,24 +116,19 @@ const API = {
   devicereadinglog: BASE_URL + "/api/devicereadinglog/",
   devicealarmlog: BASE_URL + "/api/devicealarmlog/",
   userorganizationcentrelink: BASE_URL + "/api/userorganizationcentrelink/",
-  masteruom:           BASE_URL + "/api/masteruom/",
-  masterparameter:     BASE_URL + "/api/masterparameter/",
+  masteruom: BASE_URL + "/api/masteruom/",
+  masterparameter: BASE_URL + "/api/masterparameter/",
 };
 
 let centreData=[], allDevices=[], allCategories=[], currentCentreId=null, currentUser=null;
 let currentCategoryId=null, liveUpdateInterval=null;
+window.currentDeviceGraphDeviceId = null;
 
-async function startLiveUpdates(categoryId){
-    if(liveUpdateInterval) clearInterval(liveUpdateInterval);
-    liveUpdateInterval = setInterval(() => openDeviceDashboard(categoryId, false), 10000);
-}
-
-// Load organizations dropdown
+// ------------- LOAD DATA -------------
 async function loadOrganizations(){
   try{
     const userRes = await fetch(BASE_URL + "/api/currentuser/");
     currentUser = await userRes.json();
-
     const linkRes = await fetch(API.userorganizationcentrelink + `?USER_ID=${currentUser.USER_ID}`);
     const userLinks = await linkRes.json();
     const allowedOrgIds = userLinks.map(l => l.ORGANIZATION_ID);
@@ -171,7 +140,6 @@ async function loadOrganizations(){
     orgs.filter(o => allowedOrgIds.includes(o.ORGANIZATION_ID))
         .forEach(o => orgSelect.innerHTML += `<option value="${o.ORGANIZATION_ID}">${o.ORGANIZATION_NAME}</option>`);
     
-    // Auto select user org
     if(userLinks.length>0){
       orgSelect.value = userLinks[0].ORGANIZATION_ID;
       await loadCentres(orgSelect.value, true, userLinks[0].CENTRE_ID);
@@ -179,38 +147,25 @@ async function loadOrganizations(){
   }catch(err){ console.error(err);}
 }
 
-// Load centres dropdown
 async function loadCentres(orgId, auto=false, userCentreId=null){
   const centreSelect = document.getElementById("centreSelect");
   centreSelect.innerHTML = '<option value="">Select Centre</option>';
   if(!orgId) return;
-
   try {
     if(!centreData.length){
       const res = await fetch(API.mastercentre);
       centreData = await res.json();
     }
-
-    // Filter only user's allotted centre
     let filtered = centreData.filter(c => c.ORGANIZATION_ID == orgId);
-    if(userCentreId) {
-      filtered = filtered.filter(c => c.CENTRE_ID == userCentreId);
-    }
-
-    filtered.forEach(c => {
-      centreSelect.innerHTML += `<option value="${c.CENTRE_ID}">${c.CENTRE_NAME}</option>`;
-    });
-
+    if(userCentreId) filtered = filtered.filter(c => c.CENTRE_ID == userCentreId);
+    filtered.forEach(c => { centreSelect.innerHTML += `<option value="${c.CENTRE_ID}">${c.CENTRE_NAME}</option>`; });
     if(auto && userCentreId) {
       centreSelect.value = userCentreId;
       loadDevices(userCentreId);
     }
-  } catch(err) {
-    console.error(err);
-  }
+  } catch(err) { console.error(err); }
 }
 
-// Load devices & categories
 async function loadDevices(centreId){
   currentCentreId=centreId;
   try{
@@ -223,22 +178,24 @@ async function loadDevices(centreId){
   }catch(err){console.error(err);}
 }
 
+// ------------- DASHBOARD UI -------------
 function clearFilters(){
   document.getElementById("startDateTime").value = "";
   document.getElementById("endDateTime").value = "";
   if(currentCategoryId) openDeviceDashboard(currentCategoryId);
 }
 
-// Update summary cards
 function updateSummary(){
-  const total=allDevices.length;
-  const active=allDevices.filter(d=>d.status?.toLowerCase()==="active").length;
-  document.getElementById("totalDevices").textContent=total;
-  document.getElementById("activeDevices").textContent=active;
-  document.getElementById("offlineDevices").textContent=total-active;
+    const total = allDevices.length;
+    const active = allDevices.filter(d => d.status === "active").length;
+    const offline = total - active;
+
+    document.getElementById("totalDevices").textContent = total;
+    document.getElementById("activeDevices").textContent = active;
+    document.getElementById("offlineDevices").textContent = offline;
 }
 
-// Show category cards
+
 function showCategoryCards(){
   document.getElementById("deviceDetailsContainer").style.display="none";
   const container=document.getElementById("deviceTypeCards");
@@ -249,168 +206,166 @@ function showCategoryCards(){
     const card = document.createElement("div");
     card.className="device-type-card";
     card.innerHTML=`<h6>${cat.CATEGORY_NAME}</h6><strong>${count}</strong>`;
-    if(count>0) card.onclick=()=>openDeviceDashboard(cat.CATEGORY_ID, cat.CATEGORY_NAME);
+    if(count>0) card.onclick=()=>openDeviceDashboard(cat.CATEGORY_ID);
     else card.classList.add('disabled');
     container.appendChild(card);
   });
 }
 
-function backToDashboard(){ showCategoryCards(); if(liveUpdateInterval) clearInterval(liveUpdateInterval);}
-function logout(){ fetch('/logout/').then(()=>window.location='/login/');}
-
-// Update graph automatically when date/time changes
-document.getElementById("startDateTime").addEventListener("change", ()=>{ if(currentCategoryId) openDeviceDashboard(currentCategoryId); });
-document.getElementById("endDateTime").addEventListener("change", ()=>{ if(currentCategoryId) openDeviceDashboard(currentCategoryId); });
-document.getElementById("organizationSelect").addEventListener("change",e=>loadCentres(e.target.value));
-document.getElementById("centreSelect").addEventListener("change",e=>loadDevices(e.target.value));
-
-// ----- Device Dashboard -----
-// ----- Device Dashboard -----
-async function openDeviceDashboard(categoryId) {
-  currentCategoryId = categoryId;
-  document.getElementById("deviceTypeCards").innerHTML = "";
-  document.getElementById("deviceDetailsContainer").style.display = "block";
-
-  const category = allCategories.find(c => c.CATEGORY_ID === categoryId);
-  document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
-
-  const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
-  const deviceList = document.getElementById("deviceList");
-  deviceList.innerHTML = "";
-
-  // Fetch master parameters & UOMs
-  const [masterparameter, masteruom] = await Promise.all([
-    fetch(API.masterparameter).then(r => r.json()),
-    fetch(API.masteruom).then(r => r.json())
-  ]);
-
-  // Fetch readings for the category
-  let url = API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
-  const readingsDataRaw = await (await fetch(url)).json();
-
-  // Show each device card with its latest value
-  devices.forEach(device => {
-    const div = document.createElement("div");
-    div.className = "device-card bg-secondary";
-    div.style.cursor = "pointer";
-
-    // Latest reading for that device
-    // const readings = readingsDataRaw
-    //   .filter(r => r.DEVICE_ID === device.DEVICE_ID)
-    //   .sort((a, b) => new Date(`${a.READING_DATE}T${a.READING_TIME}`) - new Date(`${b.READING_DATE}T${b.READING_TIME}`));
-
-    const readings = readingsDataRaw
-  .filter(r => r.DEVICE_ID === device.DEVICE_ID)
-  .filter(r => {
-    const param = masterparameter.find(p => p.PARAMETER_ID === r.PARAMETER_ID);
-    return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
-  })
-  .sort((a, b) => new Date(`${a.READING_DATE}T${a.READING_TIME}`) - new Date(`${b.READING_DATE}T${b.READING_TIME}`));
-
-
-    const latest = readings[readings.length - 1];
-    let readingText = "Offline";
-    let cardClass = "device-card bg-secondary";
-
-    if (latest) {
-      const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(latest.PARAMETER_ID));
-      const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
-      const uom = uomObj?.UOM_NAME || '';
-      const val = parseFloat(latest.READING).toFixed(2);
-
-      readingText = `${val} ${uom}`;
-      const upper = param?.UPPER_THRESHOLD ?? Infinity;
-      const lower = param?.LOWER_THRESHOLD ?? -Infinity;
-      if (val > upper || val < lower) cardClass = "device-card bg-danger";
-      else cardClass = "device-card bg-success";
-    }
-
-    div.className = cardClass;
-    div.innerHTML = `
-      <h6>${device.DEVICE_NAME}</h6>
-      <p id="currentTemp_${device.DEVICE_ID}" style="font-weight:600;">${readingText}</p>
-    `;
-
-    // Click to view graph & alarms
-    div.addEventListener("click", () => loadDeviceReadings(device));
-
-    deviceList.appendChild(div);
-  });
+function backToDashboard(){ 
+  showCategoryCards(); 
+  if(liveUpdateInterval) clearInterval(liveUpdateInterval);
+  window.currentDeviceGraphDeviceId = null;
 }
 
-// Function to load readings, graph, and alarms for a single device
-async function loadDeviceReadings(device) {
-    const deviceId = device.DEVICE_ID;
+function logout(){ fetch('/logout/').then(()=>window.location='/login/'); }
 
-    // Fetch master parameters & UOMs
-    let masterparameter = [], masteruom = [];
-    try {
-        masterparameter = await (await fetch(API.masterparameter)).json();
-        masteruom = await (await fetch(API.masteruom)).json();
-    } catch (err) { console.error(err); }
+// ------------- LIVE UPDATES -------------
+function startLiveUpdates(categoryId){
+    if(liveUpdateInterval) clearInterval(liveUpdateInterval);
+    updateDashboardLive(categoryId);
+    liveUpdateInterval = setInterval(()=>updateDashboardLive(categoryId),10000);
+}
 
-    // Date range
+// ----------- DEVICE STATUS FIX (VOC FRIENDLY) -----------
+// ------------------- DEVICE LIVE STATUS FIX -------------------
+async function updateDashboardLive(categoryId){
+    if(!currentCentreId) return;
+
+    const devices = allDevices.filter(d => d.CATEGORY_ID === categoryId);
+    const [masterparameter, masteruom] = await Promise.all([
+        fetch(API.masterparameter).then(r=>r.json()),
+        fetch(API.masteruom).then(r=>r.json())
+    ]);
+
+    const readingsDataRaw = await (await fetch(API.devicereadinglog + `?centre=${currentCentreId}&category=${categoryId}`)).json();
     const now = new Date();
-    let start = new Date(now.getTime() - 24*60*60*1000);
-    let end = now;
+
+    devices.forEach(device=>{
+        // 1️⃣ Filter readings for this device only
+        const deviceReadings = readingsDataRaw
+            .filter(r => r.DEVICE_ID === device.DEVICE_ID)
+            .sort((a,b)=>new Date(a.READING_DATE+'T'+a.READING_TIME) - new Date(b.READING_DATE+'T'+b.READING_TIME));
+        const latestReading = deviceReadings[deviceReadings.length-1];
+
+        // 2️⃣ Determine online/offline
+        let status="offline", displayVal="Offline";
+        if(latestReading && (now - new Date(latestReading.READING_DATE+'T'+latestReading.READING_TIME) <= 15*60*1000)){
+            status="active";
+            const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(latestReading.PARAMETER_ID));
+            const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
+            const uom = uomObj?.UOM_NAME || '';
+            displayVal = parseFloat(latestReading.READING).toFixed(2) + ' ' + uom;
+        }
+
+        device.status = status;
+
+        // 3️⃣ Update device card
+        const el = document.getElementById(`currentTemp_${device.DEVICE_ID}`);
+        if(!el) return;
+        el.textContent = displayVal;
+        el.parentElement.className = status==="active" ? "device-card bg-success" : "device-card bg-secondary";
+    });
+
+    // 4️⃣ Update summary
+    const total = devices.length;
+    const active = devices.filter(d=>d.status==="active").length;
+    document.getElementById("totalDevices").textContent = total;
+    document.getElementById("activeDevices").textContent = active;
+    document.getElementById("offlineDevices").textContent = total - active;
+
+    // 5️⃣ Refresh graph & alarms if a device is open
+    if(window.currentDeviceGraphDeviceId){
+        const currentDevice = allDevices.find(d=>d.DEVICE_ID===window.currentDeviceGraphDeviceId);
+        if(currentDevice) loadDeviceReadings(currentDevice);
+    }
+
+
+    // Refresh chart & alarms for current device
+    if(window.currentDeviceGraphDeviceId){
+        loadDeviceReadings(allDevices.find(d=>d.DEVICE_ID===window.currentDeviceGraphDeviceId));
+    }
+
+    // Update summary accurately device-wise
+    updateSummary();
+}
+
+
+// ------------- DEVICE DASHBOARD -------------
+async function openDeviceDashboard(categoryId){
+    currentCategoryId = categoryId;
+    document.getElementById("deviceTypeCards").innerHTML="";
+    document.getElementById("deviceDetailsContainer").style.display="block";
+    const category = allCategories.find(c=>c.CATEGORY_ID===categoryId);
+    document.getElementById("deviceTypeTitle").textContent = category?.CATEGORY_NAME || categoryId;
+
+    const devices = allDevices.filter(d=>d.CATEGORY_ID===categoryId);
+    const deviceList = document.getElementById("deviceList");
+    deviceList.innerHTML = "";
+
+    devices.forEach(device=>{
+        const div = document.createElement("div");
+        div.className="device-card bg-secondary";
+        div.style.cursor="pointer";
+        div.id = `card_${device.DEVICE_ID}`;
+        div.innerHTML = `<h6>${device.DEVICE_NAME}</h6><p id="currentTemp_${device.DEVICE_ID}" style="font-weight:600;">Loading...</p>`;
+        div.addEventListener("click",()=>loadDeviceReadings(device));
+        deviceList.appendChild(div);
+    });
+
+    startLiveUpdates(categoryId);
+}
+
+async function loadDeviceReadings(device){
+    window.currentDeviceGraphDeviceId = device.DEVICE_ID;
+    const masterparameter = await fetch(API.masterparameter).then(r=>r.json());
+    const masteruom = await fetch(API.masteruom).then(r=>r.json());
     const startInput = document.getElementById("startDateTime").value;
     const endInput = document.getElementById("endDateTime").value;
-    if (startInput) start = new Date(startInput);
-    if (endInput) end = new Date(endInput);
 
-    // Fetch readings
-    let url = API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
-    const readingsDataRaw = await (await fetch(url)).json();
-    // const readingsData = readingsDataRaw.filter(r => r.DEVICE_ID === deviceId);
-    
-    const readingsData = readingsDataRaw
-  .filter(r => r.DEVICE_ID === deviceId)
-  .filter(r => {
-    const param = masterparameter.find(p => p.PARAMETER_ID === r.PARAMETER_ID);
-    return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
-  });
+    // 🔹 Default to last 24 hours
+    let start = startInput ? new Date(startInput) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+    let end = endInput ? new Date(endInput) : new Date();
+    const now = new Date();
 
-    // const dataPoints = readingsData.map(r => {
-    //     const dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
-    //     return { x: dt, y: parseFloat(r.READING), paramId: r.PARAMETER_ID };
-    // });
+    const readingsDataRaw = await (await fetch(API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`)).json();
 
-    const dataPoints = readingsData
-  .map(r => {
-    const dt = new Date(r.READING_DATE + "T" + r.READING_TIME);
-    return { x: dt, y: parseFloat(r.READING), paramId: r.PARAMETER_ID };
-  })
-  .filter(p => {
-    const param = masterparameter.find(pp => String(pp.PARAMETER_ID) === String(p.paramId));
-    const name = param?.PARAMETER_NAME?.toLowerCase() || "";
+    // 🔹 Filter readings only for this device and within last 24 hours
+    const dataPoints = readingsDataRaw
+        .filter(r => r.DEVICE_ID === device.DEVICE_ID)
+        .map(r => ({ 
+            x: new Date(r.READING_DATE + 'T' + r.READING_TIME), 
+            y: parseFloat(r.READING), 
+            paramId: r.PARAMETER_ID 
+        }))
+        .filter(p => p.x >= start && p.x <= end);
 
-    // ✅ Check for parameter types
-    const isVOC = name.includes("voc");
-    const isRefricheck = name.includes("refricheck");
+    // 🔹 Identify parameter name (VOC / Refricheck)
+    const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(dataPoints[0]?.paramId));
+    const paramName = param?.PARAMETER_NAME?.toLowerCase() || "";
 
-    // ✅ Apply limits: VOC ≤ 2000, Refricheck ≤ 15
-    if (isVOC && p.y <= 2000) return true;
-    if (isRefricheck && p.y <= 15) return true;
+    // 🔹 Cap readings (limit Y values)
+    dataPoints.forEach(p => {
+        if (paramName.includes("voc") && p.y > 2000) p.y = 2000;
+        if (paramName.includes("refricheck") && p.y > 15) p.y = 15;
+    });
 
-    return false; // ignore everything else
-  });
-
-
-    // Update device reading text
+    // 🔹 Update current value
     const latest = dataPoints[dataPoints.length - 1];
-    const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(latest?.paramId));
-    const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
-    const uom = uomObj?.UOM_NAME || '';
-    const el = document.getElementById(`currentTemp_${deviceId}`);
+    const el = document.getElementById(`currentTemp_${device.DEVICE_ID}`);
     if (latest) {
-        el.textContent = latest.y.toFixed(2) + " " + uom;
-        el.parentElement.className = (latest.y > (param?.UPPER_THRESHOLD ?? Infinity) || latest.y < (param?.LOWER_THRESHOLD ?? -Infinity)) ? "device-card bg-danger" : "device-card bg-success";
+        const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
+        const uom = uomObj?.UOM_NAME || '';
+        el.textContent = latest.y.toFixed(2) + ' ' + uom;
+        el.parentElement.className = "device-card bg-success";
+        device.status = "active";
     } else {
         el.textContent = "Offline";
         el.parentElement.className = "device-card bg-secondary";
+        device.status = "offline";
     }
 
-    // Update chart for this device
+    // 🔹 Draw line chart
     const ctx = document.getElementById("deviceGraph").getContext('2d');
     if (window.deviceChart) window.deviceChart.destroy();
     window.deviceChart = new Chart(ctx, {
@@ -419,58 +374,68 @@ async function loadDeviceReadings(device) {
             datasets: [{
                 label: device.DEVICE_NAME,
                 data: dataPoints,
-                borderColor: "#007bff",
-                backgroundColor: "#007bff",
-                tension: 0.3,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
                 fill: false,
                 pointRadius: 2,
-                pointHoverRadius: 6
+                pointHoverRadius: 5
             }]
         },
         options: {
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins: {
-                tooltip: { mode:'index', intersect:false },
-                legend: { display:true, position:'top' }
-            },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { tooltip: { mode: 'index', intersect: false }, legend: { display: true, position: 'top' } },
             scales: {
-                x: { type:'time', time:{ tooltipFormat:'dd-MM-yyyy HH:mm' } },
-                y: { beginAtZero:true, title:{ display:true, text:'Reading Value' } }
+                x: { type: 'time', time: { tooltipFormat: 'dd-MM-yyyy HH:mm' }, title: { display: true, text: 'Time' } },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Reading Value' },
+                    // 🔹 Set dynamic max based on parameter
+                    suggestedMax: paramName.includes("voc") ? 2000 : (paramName.includes("refricheck") ? 15 : undefined)
+                }
             }
         }
     });
 
-    // Update alarms for this device
-    const alarmUrl = API.devicealarmlog + `?centre=${currentCentreId}&category=${currentCategoryId}`;
-    const alarmsRaw = await (await fetch(alarmUrl)).json();
-    const alarms = alarmsRaw.filter(a => a.DEVICE_ID === deviceId);
-    const alarmBody = document.getElementById("alarmLog"); 
+    // 🔹 Update alarms
+    const alarmsRaw = await (await fetch(API.devicealarmlog + `?centre=${currentCentreId}&category=${currentCategoryId}`)).json();
+    const alarms = alarmsRaw
+        .filter(a => a.DEVICE_ID === device.DEVICE_ID)
+        .sort((a, b) => new Date(b.ALARM_DATE + 'T' + b.ALARM_TIME) - new Date(a.ALARM_DATE + 'T' + a.ALARM_TIME));
+
+    const alarmBody = document.getElementById("alarmLog");
     alarmBody.innerHTML = "";
     let activeCount = 0;
     alarms.forEach(a => {
         const isActive = a.IS_ACTIVE === 1;
-        if(isActive) activeCount++;
-        alarmBody.innerHTML += `<tr>
-            <td>${device.DEVICE_NAME}</td>
-            <td>${a.READING ?? '-'}</td>
-            <td>${a.ALARM_DATE} ${a.ALARM_TIME}</td>
-            <td><span class="badge ${isActive?'bg-danger':'bg-success'}">${isActive?'Active':'Resolved'}</span></td>
-        </tr>`;
+        if (isActive) activeCount++;
+        alarmBody.innerHTML += `
+            <tr>
+                <td>${device.DEVICE_NAME}</td>
+                <td>${a.READING ?? '-'}</td>
+                <td>${a.ALARM_DATE} ${a.ALARM_TIME}</td>
+                <td><span class="badge ${isActive ? 'bg-danger' : 'bg-success'}">
+                    ${isActive ? 'Active' : 'Resolved'}
+                </span></td>
+            </tr>`;
     });
-    document.getElementById("alarm24h").textContent = alarms.filter(a=>now-new Date(a.ALARM_DATE+"T"+a.ALARM_TIME)<=24*60*60*1000).length;
+    document.getElementById("alarm24h").textContent =
+        alarms.filter(a => now - new Date(a.ALARM_DATE + 'T' + a.ALARM_TIME) <= 24 * 60 * 60 * 1000).length;
     document.getElementById("activeAlarmCount").textContent = activeCount;
 
-    // Initial update & live interval
-    updateDeviceGraph();
-    if (liveUpdateInterval) clearInterval(liveUpdateInterval);
-    liveUpdateInterval = setInterval(updateDeviceGraph, 10000);
+    updateSummary();
 }
 
-// Initialize dashboard
-(async function initDashboard() {
-  await loadOrganizations();
-})();
+// Event listeners
+document.getElementById("startDateTime").addEventListener("change",()=>{ if(currentCategoryId) updateDashboardLive(currentCategoryId); });
+document.getElementById("endDateTime").addEventListener("change",()=>{ if(currentCategoryId) updateDashboardLive(currentCategoryId); });
+document.getElementById("organizationSelect").addEventListener("change",e=>loadCentres(e.target.value));
+document.getElementById("centreSelect").addEventListener("change",e=>loadDevices(e.target.value));
+
+// Initialize
+(async function(){ await loadOrganizations(); })();
 </script>
 </body>
 </html>
