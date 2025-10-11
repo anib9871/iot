@@ -96,7 +96,7 @@ body { margin:0; padding-top:70px; display:flex; }
     </div>
 
     <h5 class="mt-4 d-flex justify-content-between align-items-center">
-      Alarm Log <span class="badge bg-danger" id="activeAlarmCount">0</span>
+      Alarm Log  <span class="badge bg-danger">Active Alarms   <span class="badge bg-danger" id="activeAlarmCount">0</span></span>
     </h5>
     <table class="table table-striped">
       <thead><tr><th>Device</th><th>Alarm</th><th>Time</th><th>Status</th></tr></thead>
@@ -249,16 +249,34 @@ async function updateDashboardLive(categoryId){
         const latestReading = deviceReadings[deviceReadings.length-1];
 
         // 2️⃣ Determine online/offline
-        let status="offline", displayVal="Offline";
-        if(latestReading && (now - new Date(latestReading.READING_DATE+'T'+latestReading.READING_TIME) <= 15*60*1000)){
-            status="active";
-            const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(latestReading.PARAMETER_ID));
-            const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
-            const uom = uomObj?.UOM_NAME || '';
-            displayVal = parseFloat(latestReading.READING).toFixed(2) + ' ' + uom;
-        }
+// 2️⃣ Determine online/offline
+let status = "offline", displayVal = "Offline";
 
-        device.status = status;
+if (deviceReadings.length > 0) {
+    // Filter only VOC readings for VOC devices
+    const vocOnly = deviceReadings.filter(r => {
+        const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(r.PARAMETER_ID));
+        return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
+    });
+
+    // Use latest VOC reading (if exists)
+    const latestVoc = vocOnly[vocOnly.length - 1];
+    const latestReading = latestVoc || deviceReadings[deviceReadings.length - 1]; // fallback
+
+    const readingTime = new Date(latestReading.READING_DATE + 'T' + latestReading.READING_TIME);
+    if (now - readingTime <= 15 * 60 * 1000) {
+        status = "active";
+
+        const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(latestReading.PARAMETER_ID));
+        const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
+        const uom = uomObj?.UOM_NAME || '';
+
+        displayVal = parseFloat(latestReading.READING).toFixed(2) + ' ' + uom;
+    }
+}
+
+device.status = status;
+
 
         // 3️⃣ Update device card
         const el = document.getElementById(`currentTemp_${device.DEVICE_ID}`);
@@ -331,14 +349,29 @@ async function loadDeviceReadings(device){
     const readingsDataRaw = await (await fetch(API.devicereadinglog + `?centre=${currentCentreId}&category=${currentCategoryId}`)).json();
 
     // 🔹 Filter readings only for this device and within last 24 hours
-    const dataPoints = readingsDataRaw
-        .filter(r => r.DEVICE_ID === device.DEVICE_ID)
-        .map(r => ({ 
-            x: new Date(r.READING_DATE + 'T' + r.READING_TIME), 
-            y: parseFloat(r.READING), 
-            paramId: r.PARAMETER_ID 
-        }))
-        .filter(p => p.x >= start && p.x <= end);
+// 🔹 Filter readings only for this device and within last 24 hours
+// 🔹 Filter readings for this device (within selected time range)
+let dataPoints = readingsDataRaw
+    .filter(r => r.DEVICE_ID === device.DEVICE_ID)
+    .map(r => ({
+        x: new Date(r.READING_DATE + 'T' + r.READING_TIME),
+        y: parseFloat(r.READING),
+        paramId: r.PARAMETER_ID
+    }))
+    .filter(p => p.x >= start && p.x <= end);
+
+// 🔹 Detect if this category/device is VOC type
+const category = allCategories.find(c => c.CATEGORY_ID === currentCategoryId);
+const isVOC = category?.CATEGORY_NAME?.toLowerCase().includes("voc");
+
+// 🔹 If VOC category → keep only VOC readings
+if (isVOC) {
+    const vocParam = masterparameter.find(p => p.PARAMETER_NAME.toLowerCase().includes("voc"));
+    if (vocParam) {
+        dataPoints = dataPoints.filter(dp => String(dp.paramId) === String(vocParam.PARAMETER_ID));
+    }
+}
+
 
     // 🔹 Identify parameter name (VOC / Refricheck)
     const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(dataPoints[0]?.paramId));
@@ -401,9 +434,18 @@ async function loadDeviceReadings(device){
 
     // 🔹 Update alarms
     const alarmsRaw = await (await fetch(API.devicealarmlog + `?centre=${currentCentreId}&category=${currentCategoryId}`)).json();
-    const alarms = alarmsRaw
-        .filter(a => a.DEVICE_ID === device.DEVICE_ID)
-        .sort((a, b) => new Date(b.ALARM_DATE + 'T' + b.ALARM_TIME) - new Date(a.ALARM_DATE + 'T' + a.ALARM_TIME));
+   // 🔹 Detect VOC category
+const isVOCDevice = allCategories.find(c => c.CATEGORY_ID === currentCategoryId)?.CATEGORY_NAME?.toLowerCase().includes("voc");
+
+// 🔹 Filter alarms
+let alarms = alarmsRaw.filter(a => a.DEVICE_ID === device.DEVICE_ID);
+if (isVOCDevice) {
+    alarms = alarms.filter(a => {
+        const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(a.PARAMETER_ID));
+        return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
+    });
+}
+alarms = alarms.sort((a, b) => new Date(b.ALARM_DATE + 'T' + b.ALARM_TIME) - new Date(a.ALARM_DATE + 'T' + a.ALARM_TIME));
 
     const alarmBody = document.getElementById("alarmLog");
     alarmBody.innerHTML = "";
