@@ -1,12 +1,11 @@
 # iot_api/models.py
 from django.db import models
-import threading
+
 from django.utils import timezone
 from datetime import datetime
 import requests
 from django.core.mail import send_mail
 
-# ================== SMS Config ==================
 # ================== SMS Config ==================
 SMS_API_URL = "http://www.universalsmsadvertising.com/universalsmsapi.php"
 SMS_USER = "8960853914"
@@ -31,24 +30,17 @@ def send_sms(phone, message):
         "type": "F",
         "text": message
     }
-
     try:
         resp = requests.get(SMS_API_URL, params=params, timeout=10)
-        print(f"🔎 SMS API Response ({phone}):", resp.text)
-
-        # ✅ Updated success detection for UniversalSMS API
-        success_keywords = ["success", "sent", "universalx", "universalsmsapi", "ok", "done"]
-        if resp.status_code == 200 and any(k in resp.text.lower() for k in success_keywords):
-            print(f"✅ SMS sent successfully to {phone}")
+        print("🔎 SMS API Response:", resp.text)
+        if resp.status_code == 200 and ("success" in resp.text.lower() or "sent" in resp.text.lower()):
+            print(f"✅ SMS sent to {phone}")
             return True
         else:
-            print(f"⚠️ SMS API returned unknown response for {phone}: {resp.text}")
-            return False
-
+            print(f"❌ SMS failed for {phone}")
     except Exception as e:
-        print(f"❌ SMS Error for {phone}:", e)
-        return False
-
+        print("❌ SMS Error:", e)
+    return False
 
 # ================== Email Function ==================
 def send_email_notification(subject, message, emails):
@@ -60,64 +52,41 @@ def send_email_notification(subject, message, emails):
         print("❌ Email Error:", e)
         return False
 
-
 # ================== Alarm Normalized Alert ==================
 def send_normalized_alert(active_alarm):
-    """
-    Sends SMS + Email when an alarm normalizes.
-    This version:
-    - Uses threading for non-blocking SMS
-    - Adds duplicate prevention
-    - Optimizes DB queries
-    """
-    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser  # import to avoid circular imports
+    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser  # Import here to avoid circular imports
 
-    try:
-        # Safety check
-        if not active_alarm or active_alarm.IS_ACTIVE == 1:
-            print("⚠️ Skip normalization alert — alarm still active or missing.")
-            return
+    device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
+    if not device:
+        print("❌ Device not found")
+        return
 
-        device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).only("DEVICE_NAME", "ORGANIZATION_ID", "CENTRE_ID").first()
-        if not device:
-            print("❌ Device not found for normalization alert.")
-            return
+    dev_name = device.DEVICE_NAME
+    org_id = device.ORGANIZATION_ID
+    centre_id = device.CENTRE_ID
 
-        dev_name = device.DEVICE_NAME
-        org_id = device.ORGANIZATION_ID
-        centre_id = device.CENTRE_ID
+    user_ids = list(
+        UserOrganizationCentreLink.objects
+        .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
+        .values_list('USER_ID_id', flat=True)
+    )
 
-        user_ids = list(
-            UserOrganizationCentreLink.objects
-            .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
-            .values_list('USER_ID_id', flat=True)
-        )
+    if not user_ids:
+        print("❌ No users linked to this org/centre")
+        return
 
-        if not user_ids:
-            print(f"❌ No linked users found for device {dev_name}")
-            return
+    users = MasterUser.objects.filter(USER_ID__in=user_ids)
 
-        users = MasterUser.objects.filter(USER_ID__in=user_ids).only("PHONE", "EMAIL", "SEND_SMS", "SEND_EMAIL")
+    phones = [u.PHONE for u in users if u.SEND_SMS]
+    emails = [u.EMAIL for u in users if u.SEND_EMAIL]
 
-        phones = [u.PHONE for u in users if u.SEND_SMS]
-        emails = [u.EMAIL for u in users if u.SEND_EMAIL]
+    message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
 
-        message = f"✅ INFO: The temperature levels are back to normal for {dev_name}. No action is required - Regards, Fertisense LLP"
+    for phone in phones:
+        send_sms(phone, message)
 
-        print(f"📨 Preparing to send normalization alert for {dev_name} | Phones: {len(phones)} | Emails: {len(emails)}")
-
-        # ✅ Send SMS asynchronously (background thread)
-        for phone in phones:
-            threading.Thread(target=send_sms, args=(phone, message), daemon=True).start()
-
-        # ✅ Send emails
-        if emails:
-            threading.Thread(target=send_email_notification, args=("Alarm Normalized", message, emails), daemon=True).start()
-
-        print(f"✅ Normalization alerts dispatched for {dev_name}")
-
-    except Exception as e:
-        print("❌ Error in send_normalized_alert:", e)
+    if emails:
+        send_email_notification("Alarm Normalized", message, emails)
 
 # ================== Device Reading Log ==================
 class DeviceReadingLog(models.Model):
