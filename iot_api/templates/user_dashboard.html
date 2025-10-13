@@ -32,6 +32,39 @@ body { margin:0; padding-top:70px; display:flex; }
 #deviceList { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: flex-start; margin-bottom: 20px; }
 #deviceList .device-card { flex: 1 1 200px; max-width: 250px; min-width: 180px; }
 #alarmLog tr td { vertical-align:middle; }
+/* Hover effect for device cards */
+.device-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.device-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+}
+
+/* Overlay text on hover */
+.device-card::after {
+  content: "View Graph";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 12px;
+}
+
+.device-card:hover::after {
+  opacity: 1;
+}
+
 </style>
 </head>
 <body>
@@ -82,7 +115,7 @@ body { margin:0; padding-top:70px; display:flex; }
   <div id="deviceDetailsContainer">
     <button class="btn btn-sm btn-secondary mb-3" onclick="backToDashboard()">← Back</button>
     <h4 id="deviceTypeTitle"></h4>
-    <div id="deviceList" class="mb-3"></div>         
+    <div id="deviceList" class="mb-3"></div>        
     <div style="max-width:700px;margin:auto;display:flex;gap:15px;align-items:flex-start;">
       <div style="flex:0 0 150px;display:flex;flex-direction:column;gap:10px;margin-left:-200px;">
         <div style="max-width:250px;background:#dc3545;color:#fff;border-radius:10px;padding:8px;text-align:center;" class="mb-3">
@@ -326,7 +359,8 @@ async function openDeviceDashboard(categoryId){
         div.className="device-card bg-secondary";
         div.style.cursor="pointer";
         div.id = `card_${device.DEVICE_ID}`;
-        div.innerHTML = `<h6>${device.DEVICE_NAME}</h6><p id="currentTemp_${device.DEVICE_ID}" style="font-weight:600;">Loading...</p>`;
+        div.innerHTML = `<h6>${device.DEVICE_NAME}</h6><p id="currentTemp_${device.DEVICE_ID}" style="font-weight:600;">Loading...</p>`
+        ;
         div.addEventListener("click",()=>loadDeviceReadings(device));
         deviceList.appendChild(div);
     });
@@ -386,17 +420,34 @@ if (isVOC) {
     // 🔹 Update current value
     const latest = dataPoints[dataPoints.length - 1];
     const el = document.getElementById(`currentTemp_${device.DEVICE_ID}`);
-    if (latest) {
-        const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
-        const uom = uomObj?.UOM_NAME || '';
-        el.textContent = latest.y.toFixed(2) + ' ' + uom;
-        el.parentElement.className = "device-card bg-success";
-        device.status = "active";
-    } else {
-        el.textContent = "Offline";
-        el.parentElement.className = "device-card bg-secondary";
-        device.status = "offline";
+if (latest) {
+    const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
+    const uom = uomObj?.UOM_NAME || '';
+    const readingVal = parseFloat(latest.y);
+
+    // 🔹 Fetch thresholds from masterparameter
+    const lower = parseFloat(param?.LOWER_THRESHOLD ?? 0);
+    const mid = parseFloat(param?.THRESHOLD ?? 0);
+    const upper = parseFloat(param?.UPPER_THRESHOLD ?? 0);
+
+    // 🔹 Decide color
+    let colorClass = "bg-success"; // default green
+    if (!isNaN(readingVal)) {
+        if (upper && readingVal > upper) colorClass = "bg-danger"; // High
+        else if (lower && readingVal < lower) colorClass = "bg-warning"; // Low
+        else colorClass = "bg-success"; // Normal
     }
+
+    // 🔹 Update UI
+    el.textContent = readingVal.toFixed(2) + ' ' + uom;
+    el.parentElement.className = `device-card ${colorClass}`;
+    device.status = "active";
+} else {
+    el.textContent = "Offline";
+    el.parentElement.className = "device-card bg-secondary";
+    device.status = "offline";
+}
+
 
     // 🔹 Draw line chart
     const ctx = document.getElementById("deviceGraph").getContext('2d');
