@@ -133,46 +133,42 @@ class DeviceReadingLog(models.Model):
 
     class Meta:
         db_table = "device_reading_log"
-    
-    # inside your DeviceReadingLog model class
-    # inside your DeviceReadingLog model class
-    def save(self, *args, **kwargs):
-        if not self.READING_DATE:
-            self.READING_DATE = timezone.now().date()
-        if not self.READING_TIME:
-        # store time without microseconds
-            self.READING_TIME = timezone.now().time().replace(microsecond=0)
+        
+      def save(self, *args, **kwargs):
+            if not self.READING_DATE:
+                self.READING_DATE = timezone.now().date()
+        # Ensure READING_TIME is set
+            if not self.READING_TIME:
+                self.READING_TIME = timezone.now().time().replace(microsecond=0)
+            super().save(*args, **kwargs)  # Save reading first
 
-        super().save(*args, **kwargs)  # Save reading first
+        # ================== Fetch Parameter ==================
+            from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
 
-    # ================== Fetch Parameter ==================
-    # import models here to avoid circular import issues at module load
-        from .models import MasterParameter, DeviceAlarmLog, MasterDevice  # noqa: F401
+            try:
+                param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
+            except MasterParameter.DoesNotExist:
+                print("❌ Parameter not found")
+                return
 
-        try:
-            param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
-        except MasterParameter.DoesNotExist:
-            print("❌ Parameter not found")
-            return
+            if self.READING is None:
+                print("❌ No reading provided")
+                return
 
-        if self.READING is None:
-            print("❌ No reading provided")
-            return
+            breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
+            print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
 
-        breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
-        print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={timezone.now()}")
+            active_alarm = DeviceAlarmLog.objects.filter(
+                DEVICE_ID=self.DEVICE_ID,
+                SENSOR_ID=self.SENSOR_ID,
+                PARAMETER_ID=self.PARAMETER_ID,
+                IS_ACTIVE=1
+            ).first()
 
-        active_alarm = DeviceAlarmLog.objects.filter(
-            DEVICE_ID=self.DEVICE_ID,
-            SENSOR_ID=self.SENSOR_ID,
-            PARAMETER_ID=self.PARAMETER_ID,
-            IS_ACTIVE=1
-        ).first()
-
-        if breached:
-            if not active_alarm:
-                print("🚨 New Alarm Created")
-                DeviceAlarmLog.objects.create(
+            if breached:
+                if not active_alarm:
+                    print("🚨 New Alarm Created")
+                    DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
                     SENSOR_ID=self.SENSOR_ID,
                     PARAMETER_ID=self.PARAMETER_ID,
@@ -184,39 +180,32 @@ class DeviceReadingLog(models.Model):
                     IS_ACTIVE=1
                 )
             else:
-            # Existing active alarm — update last reading/time if you want
-                DeviceAlarmLog.objects.filter(id=active_alarm.id).update(
-                    READING=self.READING,
-                    LST_UPD_DT=timezone.now().date()
-                )
-                print("⚠️ Updated existing active alarm's last reading")
-        else:
-        # reading not breached (normalized)
-            if active_alarm:
-                print("✅ Alarm normalized. Sending notifications...")
-            # Use the dedicated function that finds users and sends SMS/email
-            try:
-                send_normalized_alert(active_alarm)
-            except Exception as e:
-                print("❌ Error while sending normalized alert:", e)
+                if active_alarm:
+                    print("✅ Alarm normalized. Sending notifications...")
+                    send_normalized_alert(active_alarm)
+                # Update alarm as inactive
+                    active_alarm.IS_ACTIVE = 0
+                    active_alarm.LST_UPD_DT = timezone.now().date()
+                    active_alarm.save()
+                
+                    # # Device ka naam fetch kar
+                    # device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
+                    # devnm = device.DEVICE_NAME if device else f"Device {active_alarm.DEVICE_ID}"
+                    # # 🔔 Send SMS + Email on normalization
+                    # message = f"INFO!! The temperature levels are back to normal for {devnm}. No action is required - Regards Fertisense LLP"
+                    # #print(msg)
+                    # sms_ok = send_sms(TO_PHONE_NUMBER, message)   # <- apna number daalna
+                    # mail_ok = send_email_notification("Alarm Normalized", message, "testwebservice71@gmail.com")
 
-            # Mark alarm inactive and update last-updated
-            active_alarm.IS_ACTIVE = 0
-            active_alarm.LST_UPD_DT = timezone.now().date()
-            active_alarm.save()
-
-            # Update normalized timestamp fields on DB (only if those fields exist)
-            now_dt = timezone.now()
-            try:
-                DeviceAlarmLog.objects.filter(id=active_alarm.id).update(
-                    NORMALIZED_SMS_DATE=now_dt.date(),
-                    NORMALIZED_SMS_TIME=now_dt.time().replace(microsecond=0),
-                    NORMALIZED_EMAIL_DATE=now_dt.date(),
-                    NORMALIZED_EMAIL_TIME=now_dt.time().replace(microsecond=0)
-                )
-                print("📌 NORMALIZED timestamps updated in DB")
-            except Exception as e:
-                print("⚠️ Could not update NORMALIZED timestamp fields (maybe they don't exist):", e)
+                    # # Agar dono me se koi bhi success hua toh DB me update
+                    # if sms_ok or mail_ok:
+                    #     DeviceAlarmLog.objects.filter(id=active_alarm.id).update(
+                    #         NORMALIZED_SMS_DATE=now.date(),
+                    #         NORMALIZED_SMS_TIME=now.time(),
+                    #         NORMALIZED_EMAIL_DATE=now.date(),
+                    #         NORMALIZED_EMAIL_TIME=now.time()
+                    #         )
+                    #     print("📌 NORMALIZED_SMS_DATE & NORMALIZED_SMS_TIME updated in DB")
 
         
     # def save(self, *args, **kwargs):
