@@ -134,40 +134,40 @@ class DeviceReadingLog(models.Model):
     class Meta:
         db_table = "device_reading_log"
         
-      def save(self, *args, **kwargs):
-            if not self.READING_DATE:
-                self.READING_DATE = timezone.now().date()
+    def save(self, *args, **kwargs):
+        if not self.READING_DATE:
+            self.READING_DATE = timezone.now().date()
         # Ensure READING_TIME is set
-            if not self.READING_TIME:
-                self.READING_TIME = timezone.now().time().replace(microsecond=0)
-            super().save(*args, **kwargs)  # Save reading first
+        if not self.READING_TIME:
+            self.READING_TIME = timezone.now().time().replace(microsecond=0)
+        super().save(*args, **kwargs)  # Save reading first
 
         # ================== Fetch Parameter ==================
-            from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
+        from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
 
-            try:
-                param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
-            except MasterParameter.DoesNotExist:
-                print("❌ Parameter not found")
-                return
+        try:
+            param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
+        except MasterParameter.DoesNotExist:
+            print("❌ Parameter not found")
+            return
 
-            if self.READING is None:
-                print("❌ No reading provided")
-                return
+        if self.READING is None:
+            print("❌ No reading provided")
+            return
 
-            breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
-            print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
+        breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
+        print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
 
-            active_alarm = DeviceAlarmLog.objects.filter(
+        active_alarm = DeviceAlarmLog.objects.filter(
                 DEVICE_ID=self.DEVICE_ID,
                 SENSOR_ID=self.SENSOR_ID,
                 PARAMETER_ID=self.PARAMETER_ID,
                 IS_ACTIVE=1
-            ).first()
+        ).first()
 
-            if breached:
-                if not active_alarm:
-                    print("🚨 New Alarm Created")
+        if breached:
+            if not active_alarm:
+                print("🚨 New Alarm Created")
                     DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
                     SENSOR_ID=self.SENSOR_ID,
@@ -178,15 +178,15 @@ class DeviceReadingLog(models.Model):
                     CRT_DT=timezone.now().date(),
                     LST_UPD_DT=timezone.now().date(),
                     IS_ACTIVE=1
-                )
-            else:
-                if active_alarm:
-                    print("✅ Alarm normalized. Sending notifications...")
-                    send_normalized_alert(active_alarm)
+            )
+        else:
+            if active_alarm:
+                print("✅ Alarm normalized. Sending notifications...")
+                send_normalized_alert(active_alarm)
                 # Update alarm as inactive
-                    active_alarm.IS_ACTIVE = 0
-                    active_alarm.LST_UPD_DT = timezone.now().date()
-                    active_alarm.save()
+                active_alarm.IS_ACTIVE = 0
+                active_alarm.LST_UPD_DT = timezone.now().date()
+                active_alarm.save()
                 
                     # # Device ka naam fetch kar
                     # device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
