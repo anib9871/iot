@@ -159,16 +159,16 @@ class DeviceReadingLog(models.Model):
         print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
 
         active_alarm = DeviceAlarmLog.objects.filter(
-                DEVICE_ID=self.DEVICE_ID,
-                SENSOR_ID=self.SENSOR_ID,
-                PARAMETER_ID=self.PARAMETER_ID,
-                IS_ACTIVE=1
+            DEVICE_ID=self.DEVICE_ID,
+            SENSOR_ID=self.SENSOR_ID,
+            PARAMETER_ID=self.PARAMETER_ID,
+            IS_ACTIVE=1
         ).first()
 
         if breached:
             if not active_alarm:
                 print("🚨 New Alarm Created")
-                    DeviceAlarmLog.objects.create(
+                DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
                     SENSOR_ID=self.SENSOR_ID,
                     PARAMETER_ID=self.PARAMETER_ID,
@@ -178,7 +178,7 @@ class DeviceReadingLog(models.Model):
                     CRT_DT=timezone.now().date(),
                     LST_UPD_DT=timezone.now().date(),
                     IS_ACTIVE=1
-            )
+                )
         else:
             if active_alarm:
                 print("✅ Alarm normalized. Sending notifications...")
@@ -187,6 +187,7 @@ class DeviceReadingLog(models.Model):
                 active_alarm.IS_ACTIVE = 0
                 active_alarm.LST_UPD_DT = timezone.now().date()
                 active_alarm.save()
+                
                 
                     # # Device ka naam fetch kar
                     # device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
