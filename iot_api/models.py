@@ -1,6 +1,6 @@
 # iot_api/models.py
+# iot_api/models.py
 from django.db import models
-
 from django.utils import timezone
 from datetime import datetime
 import requests
@@ -20,6 +20,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'testwebservice71@gmail.com'
 EMAIL_HOST_PASSWORD = 'akuu vulg ejlg ysbt'  # Gmail app password
 
+
 # ================== SMS Function ==================
 def send_sms(phone, message):
     params = {
@@ -33,61 +34,80 @@ def send_sms(phone, message):
     try:
         resp = requests.get(SMS_API_URL, params=params, timeout=10)
         print("🔎 SMS API Response:", resp.text)
-        if resp.status_code == 200 and ("success" in resp.text.lower() or "sent" in resp.text.lower()):
+
+        # UniversalSMS response doesn't include "success" or "sent" keywords
+        # It returns an alphanumeric token like "kpaef3444...UNIVERSALX~..."
+        if resp.status_code == 200 and ("UNIVERSALX" in resp.text or resp.text.strip()):
             print(f"✅ SMS sent to {phone}")
             return True
         else:
-            print(f"❌ SMS failed for {phone}")
+            print(f"❌ SMS failed for {phone} — Response: {resp.text}")
     except Exception as e:
-        print("❌ SMS Error:", e)
+        print(f"❌ SMS Error for {phone}:", e)
     return False
+
 
 # ================== Email Function ==================
 def send_email_notification(subject, message, emails):
     try:
-        send_mail(subject, message, "noreply@iot.com", emails)
+        send_mail(
+            subject,
+            message,
+            "noreply@iot.com",
+            emails,
+            fail_silently=True  # prevents worker crash if SMTP fails
+        )
         print(f"📧 Email sent to: {', '.join(emails)}")
         return True
     except Exception as e:
-        print("❌ Email Error:", e)
+        print("⚠️ Email Error:", e)
         return False
+
 
 # ================== Alarm Normalized Alert ==================
 def send_normalized_alert(active_alarm):
-    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser  # Import here to avoid circular imports
+    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser  # Avoid circular imports
 
-    device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
-    if not device:
-        print("❌ Device not found")
-        return
+    try:
+        device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
+        if not device:
+            print("❌ Device not found for normalization alert")
+            return
 
-    dev_name = device.DEVICE_NAME
-    org_id = device.ORGANIZATION_ID
-    centre_id = device.CENTRE_ID
+        dev_name = device.DEVICE_NAME
+        org_id = device.ORGANIZATION_ID
+        centre_id = device.CENTRE_ID
 
-    user_ids = list(
-        UserOrganizationCentreLink.objects
-        .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
-        .values_list('USER_ID_id', flat=True)
-    )
+        user_ids = list(
+            UserOrganizationCentreLink.objects
+            .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
+            .values_list('USER_ID_id', flat=True)
+        )
 
-    if not user_ids:
-        print("❌ No users linked to this org/centre")
-        return
+        if not user_ids:
+            print("❌ No users linked to this org/centre")
+            return
 
-    users = MasterUser.objects.filter(USER_ID__in=user_ids)
+        users = MasterUser.objects.filter(USER_ID__in=user_ids)
 
-    phones = [u.PHONE for u in users if u.SEND_SMS]
-    emails = [u.EMAIL for u in users if u.SEND_EMAIL]
+        phones = [u.PHONE for u in users if u.SEND_SMS]
+        emails = [u.EMAIL for u in users if u.SEND_EMAIL]
 
-    message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
+        message = (
+            f"INFO!! The temperature levels are back to normal for {dev_name}. "
+            f"No action is required - Regards Fertisense LLP"
+        )
 
-    for phone in phones:
-        send_sms(phone, message)
+        for phone in phones:
+            send_sms(phone, message)
 
-    if emails:
-        send_email_notification("Alarm Normalized", message, emails)
-        
+        if emails:
+            send_email_notification("Alarm Normalized", message, emails)
+
+    except Exception as e:
+        print("⚠️ Error while sending normalized alert:", e)
+
+
 # ================== Device Reading Log ==================
 class DeviceReadingLog(models.Model):
     id = models.AutoField(primary_key=True)
@@ -102,14 +122,15 @@ class DeviceReadingLog(models.Model):
 
     class Meta:
         db_table = "device_reading_log"
-        
+
     def save(self, *args, **kwargs):
         if not self.READING_DATE:
             self.READING_DATE = timezone.now().date()
-        # Ensure READING_TIME is set
+
         if not self.READING_TIME:
             self.READING_TIME = timezone.now().time().replace(microsecond=0)
-        super().save(*args, **kwargs)  # Save reading first
+
+        super().save(*args, **kwargs)
 
         # ================== Fetch Parameter ==================
         from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
@@ -151,8 +172,11 @@ class DeviceReadingLog(models.Model):
         else:
             if active_alarm:
                 print("✅ Alarm normalized. Sending notifications...")
-                send_normalized_alert(active_alarm)
-                # Update alarm as inactive
+                try:
+                    send_normalized_alert(active_alarm)
+                except Exception as e:
+                    print("⚠️ Error during normalization notification:", e)
+                # Mark alarm inactive
                 active_alarm.IS_ACTIVE = 0
                 active_alarm.LST_UPD_DT = timezone.now().date()
                 active_alarm.save()
