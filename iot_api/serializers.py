@@ -157,6 +157,7 @@ class CentreOrganizationLinkSerializer(serializers.ModelSerializer):
 # -------------------------
 # MasterUser
 # -------------------------
+import re
 class MasterUserSerializer(serializers.ModelSerializer):
     SEND_SMS = serializers.BooleanField(required=False)
     SEND_EMAIL = serializers.BooleanField(required=False)
@@ -176,11 +177,19 @@ class MasterUserSerializer(serializers.ModelSerializer):
             'VALIDITY_START',
             'VALIDITY_END'
         ]
-        widgets = {
-            "PASSWORD": forms.PasswordInput(),
-            "VALIDITY_START": forms.DateInput(attrs={"type": "date"}),  # HTML5 date picker
-            "VALIDITY_END": forms.DateInput(attrs={"type": "date"}),    # HTML5 date picker
+        extra_kwargs = {
+            "PASSWORD": {"write_only": True},  # Don't return password in API
         }
+
+    def validate_PASSWORD(self, value):
+        """Strong password validation"""
+        # Minimum 8 chars, 1 upper, 1 lower, 1 digit, 1 special char
+        regex = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$'
+        if not re.match(regex, value):
+            raise serializers.ValidationError(
+                "Password must be min 8 chars, include 1 uppercase, 1 lowercase, 1 number, and 1 special character."
+            )
+        return make_password(value)  # Hash the password before saving
         
 # -------------------------
 # User Organization Centre Link
