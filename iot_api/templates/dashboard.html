@@ -164,7 +164,7 @@ body { background: #f1f3f8; font-family: 'Segoe UI', sans-serif; padding-top: 70
 // const BASE_URL = `${window.location.protocol}//${window.location.hostname}:8080/api/`; // ✅ Dynamic Base URL
 // const BASE_URL = "http://192.168.1.6:8000/api/"; // direct IP
 // const BASE_URL = "http://192.168.0.100:8000"; // direct IP
-const BASE_URL = "https://iot-y8pi.onrender.com"; // direct IP
+const BASE_URL = "https://iot-y8pi.onrender.com/"; // direct IP
 // const BASE_URL = "   https://16de7fd271a3.ngrok-free.app"; // direct IP
 // const BASE_URL = "https://1vs2c96b-8000.inc1.devtunnels.ms"; // direct IP
 
@@ -307,6 +307,30 @@ async function loadDropdowns(){
   }
 }
 
+function sortDescending(table, data) {
+  if (!data || data.length === 0) return data;
+
+  const sample = data[0];
+
+  // Date/Time fields check
+  const dateKeys = Object.keys(sample).filter(k => k.toLowerCase().includes("date") || k.toLowerCase().includes("time"));
+  if (dateKeys.length) {
+    // Sort by first date/time field
+    const key = dateKeys[0];
+    return data.sort((a, b) => new Date(b[key]) - new Date(a[key]));
+  }
+
+  // Numeric fields check (ID, reading, etc.)
+  const numberKeys = Object.keys(sample).filter(k => typeof sample[k] === "number" || !isNaN(Number(sample[k])));
+  if (numberKeys.length) {
+    const key = numberKeys[0];
+    return data.sort((a, b) => Number(b[key]) - Number(a[key]));
+  }
+
+  return data; // fallback: as is
+}
+
+
 // ===== load & draw table =====
 async function loadTable(table) {
   currentTable = normalizeKey(table);
@@ -319,6 +343,9 @@ async function loadTable(table) {
 
   try {
     currentData = await fetchJSON(API[currentTable]);
+
+    // ✅ Apply generic descending sort for all tables
+    currentData = sortDescending(currentTable, currentData);
 
     // ✅ Sorting for readings & alarms
     if (currentTable === "devicereadinglog") {
@@ -584,12 +611,12 @@ if (currentTable === "createuser") {
         </div>
       </div>
 
-     <!-- ✅ Password + Show/Hide -->
-      <div class="col-md-6 mb-3">
+   <div class="col-md-6 mb-3">
         <label class="form-label">Password</label>
         <input type="password" class="form-control" id="PASSWORD" name="PASSWORD" value="${row.PASSWORD ?? ''}">
+        <div id="PASSWORD-error" class="text-danger mt-1"></div>
         <div class="form-check mt-2">
-          <input class="form-check-input" type="checkbox" id="showPassword">
+          <input class="form-check-input" type="checkbox"  id="showPassword">
           <label class="form-check-label" for="showPassword">Show Password</label>
         </div>
       </div>
@@ -597,37 +624,62 @@ if (currentTable === "createuser") {
       <div class="col-md-6 mb-3">
         <label class="form-label">Confirm Password</label>
         <input type="password" class="form-control" id="confirm_password" name="confirm_password" value="${row.PASSWORD ?? ''}">
+        <div id="confirm_password-error" class="text-danger mt-1"></div>
         <div class="form-check mt-2">
           <input class="form-check-input" type="checkbox" id="showConfirmPassword">
           <label class="form-check-label" for="showConfirmPassword">Show Confirm Password</label>
         </div>
       </div>
 
-      <!-- ✅ Validity fields at bottom with calendar -->
+      <!-- Validity fields -->
       <div class="col-md-6 mb-3">
         <label class="form-label">Validity Start</label>
-        <input type="date" class="form-control" name="VALIDITY_START" 
-          value="${row.VALIDITY_START ?? formattedToday}">
+        <input type="date" class="form-control" name="VALIDITY_START" value="${row.VALIDITY_START ?? formattedToday}">
       </div>
       <div class="col-md-6 mb-3">
         <label class="form-label">Validity End</label>
-        <input type="date" class="form-control" name="VALIDITY_END" 
-          value="${row.VALIDITY_END ?? formattedEnd}">
+        <input type="date" class="form-control" name="VALIDITY_END" value="${row.VALIDITY_END ?? formattedEnd}">
       </div>
     </div>
   `;
-    // ✅ Show/Hide JS Logic
+
+  // Show/Hide password logic
   setTimeout(() => {
     document.getElementById("showPassword")?.addEventListener("change", function() {
-      const pass = document.getElementById("PASSWORD");
-      pass.type = this.checked ? "text" : "password";
+      document.getElementById("PASSWORD").type = this.checked ? "text" : "password";
+    });
+    document.getElementById("showConfirmPassword")?.addEventListener("change", function() {
+      document.getElementById("confirm_password").type = this.checked ? "text" : "password";
     });
 
-    document.getElementById("showConfirmPassword")?.addEventListener("change", function() {
-      const pass = document.getElementById("confirm_password");
-      pass.type = this.checked ? "text" : "password";
-    });
+    // Password validation on input
+    const passwordInput = document.getElementById("PASSWORD");
+    const confirmInput = document.getElementById("confirm_password");
+
+    function validatePassword() {
+      const value = passwordInput.value;
+      const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+      const errorEl = document.getElementById("PASSWORD-error");
+
+      if (!regex.test(value)) {
+        errorEl.textContent = "Password must be min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char.";
+      } else {
+        errorEl.textContent = "";
+      }
+
+      // Confirm password match
+      const confirmEl = document.getElementById("confirm_password-error");
+      if (confirmInput.value && value !== confirmInput.value) {
+        confirmEl.textContent = "Passwords do not match.";
+      } else {
+        confirmEl.textContent = "";
+      }
+    }
+
+    passwordInput.addEventListener("input", validatePassword);
+    confirmInput.addEventListener("input", validatePassword);
   }, 100);
+
   return;
 }
 
