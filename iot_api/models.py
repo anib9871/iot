@@ -107,7 +107,7 @@ class DeviceReadingLog(models.Model):
     def save(self, *args, **kwargs):
     # 🔹 Step 1: Log initiation
         start_time = datetime.now()
-        print(f"🕒 [INITIATED] Device Reading Save started at: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"🕒 [INITIATED] Device Reading Save started at: {start_time.strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
         if not self.READING_DATE:
             self.READING_DATE = timezone.now().date()
@@ -118,7 +118,7 @@ class DeviceReadingLog(models.Model):
         super().save(*args, **kwargs)
 
         insert_time = datetime.now()
-        print(f"✅ [INSERT COMPLETED] DB entry saved at: {insert_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"✅ [INSERT COMPLETED] DB entry saved at: {insert_time.strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
     # ================== Fetch Parameter ==================
         from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
@@ -135,7 +135,7 @@ class DeviceReadingLog(models.Model):
 
     # 🔹 Step 3: Threshold check
         breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
-        print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Checked at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Checked at {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
         active_alarm = DeviceAlarmLog.objects.filter(
             DEVICE_ID=self.DEVICE_ID,
@@ -148,7 +148,7 @@ class DeviceReadingLog(models.Model):
         if breached:
             if not active_alarm:
                 alarm_start = datetime.now()
-                print(f"🚨 [ALARM INITIATED] Creating new alarm at: {alarm_start.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"🚨 [ALARM INITIATED] Creating new alarm at: {alarm_start.strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
                 DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
@@ -163,12 +163,12 @@ class DeviceReadingLog(models.Model):
                 )
 
                 alarm_done = datetime.now()
-                print(f"✅ [ALARM SAVED] Alarm record inserted at: {alarm_done.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"✅ [ALARM SAVED] Alarm record inserted at: {alarm_done.strftime('%Y-%m-%d %H:%M:%S.%f')}")
         else:
         # 🔹 Step 5: Alarm normalization
             if active_alarm:
                 norm_start = datetime.now()
-                print(f"✅ [NORMALIZATION INITIATED] at: {norm_start.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"✅ [NORMALIZATION INITIATED] at: {norm_start.strftime('%Y-%m-%d %H:%M:%S.%f')}")
                 send_normalized_alert(active_alarm)
 
                 active_alarm.IS_ACTIVE = 0
@@ -176,7 +176,7 @@ class DeviceReadingLog(models.Model):
                 active_alarm.save()
 
                 norm_done = datetime.now()
-                print(f"📧 [NORMALIZATION COMPLETED] at: {norm_done.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"📧 [NORMALIZATION COMPLETED] at: {norm_done.strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
                 
                 
