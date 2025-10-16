@@ -304,7 +304,8 @@ if (deviceReadings.length > 0) {
         const uomObj = param ? masteruom.find(u => String(u.UOM_ID) === String(param.UOM_ID)) : null;
         const uom = uomObj?.UOM_NAME || '';
 
-        displayVal = parseFloat(latestReading.READING).toFixed(2) + ' ' + uom;
+        displayVal = Math.round(parseFloat(latestReading.READING)) + ' ' + uom;
+
     }
 }
 
@@ -439,7 +440,7 @@ if (latest) {
     }
 
     // 🔹 Update UI
-    el.textContent = readingVal.toFixed(2) + ' ' + uom;
+    el.textContent = Math.round(readingVal) + ' ' + uom;
     el.parentElement.className = `device-card ${colorClass}`;
     device.status = "active";
 } else {
@@ -463,8 +464,8 @@ if (latest) {
                 borderWidth: 2,
                 tension: 0.4,
                 fill: false,
-                pointRadius: 2,
-                pointHoverRadius: 5
+                pointRadius: 0,
+                pointHoverRadius: 0
             }]
         },
         options: {
@@ -532,6 +533,7 @@ document.getElementById("centreSelect").addEventListener("change",e=>loadDevices
 </script>
 </body>
 </html>
+
 
 
 <!-- <!DOCTYPE html>
