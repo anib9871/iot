@@ -3,8 +3,8 @@ import dj_database_url
 # iot_project/settings.py
 import os
 from pathlib import Path
-# import pymysql
-# pymysql.install_as_MySQLdb()
+import pymysql
+pymysql.install_as_MySQLdb()
 
 
 
