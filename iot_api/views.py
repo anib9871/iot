@@ -36,9 +36,9 @@ def login_view(request):
 
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT "USERNAME", "ROLE_ID"
+                SELECT USERNAME, ROLE_ID
                 FROM master_user
-                WHERE "USERNAME"=%s AND "PASSWORD"=%s
+                WHERE USERNAME=%s AND PASSWORD=%s
             """, [username, password])
             row = cursor.fetchone()
 
