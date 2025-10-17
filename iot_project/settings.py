@@ -100,11 +100,8 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny"
-    ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
-    "PAGE_SIZE": 200,  # ya 100 agar dataset heavy hai
+    ]
 }
-
 
 # REST_FRAMEWORK = {
 #     "DEFAULT_AUTHENTICATION_CLASSES": [],
