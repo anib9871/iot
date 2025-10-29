@@ -10,7 +10,7 @@ from .models import (
     MasterParameter,
     MasterSensor,
     SeUser,
-    SensorParameterLink, MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory
+    SensorParameterLink, MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory , MasterSubscriptionInfo
 )
 from django import forms
 # from .models import MasterUser
@@ -167,3 +167,10 @@ class DeviceCategoryAdmin(admin.ModelAdmin):
     list_display =("CATEGORY_ID","CATEGORY_NAME")
     search_fields =("CATEGORY_ID","CATEGORY_NAME")
     list_filter =("CATEGORY_ID","CATEGORY_NAME")
+
+# Master_SubscriptionInfo
+@admin.register(models.MasterSubscriptionInfo)
+class MasterSubscriptionInfoAdmin(admin.ModelAdmin):
+    list_display = ("Subscription_ID", "Package_Name", "CRT_date", "CRT_BY")
+    search_fields = ("Subscription_ID", "Package_Name", "CRT_date", "CRT_BY")
+    list_filter = ("Subscription_ID", "Package_Name", "CRT_date", "CRT_BY")
