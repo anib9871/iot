@@ -81,6 +81,7 @@ body { background: #f1f3f8; font-family: 'Segoe UI', sans-serif; padding-top: 70
 <li><a class="dropdown-item" href="#" onclick="loadTable('master centre')">Centre</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('devices category')">Devices Category</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master devices')">Devices</a></li>
+<li><a class="dropdown-item" href="#" onclick="loadTable('master subscriptioninfo')">Master Subscription Info</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master sensor')">Sensors</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master parameter')">Parameter</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master uom')">Uom</a></li>
@@ -190,7 +191,8 @@ const API = {
   compassdates:        BASE_URL + "/api/compassdates/",
   // centreorganizationlink: BASE_URL + "centreorganizationlink/",
   userorganizationcentrelink: BASE_URL + "/api/userorganizationcentrelink/",
-  masternotificationtime: BASE_URL + "/api/masternotificationtime/"
+  masternotificationtime: BASE_URL + "/api/masternotificationtime/",
+  mastersubscriptioninfo: BASE_URL +"/api/mastersubscriptioninfo/",
 
   //   masterorganizations: "http://127.0.0.1:8000/api/masterorganization/",
   // mastercentre:        "http://127.0.0.1:8000/api/mastercentre/",
@@ -224,6 +226,7 @@ const HEADER_LABELS = {
   UOM_ID: "UNIT",
   USER_ID: "USER NAME",
   CATEGORY_ID: "CATEGORY NAME",
+  Subcription_ID:"Subcription_ID"
 };
 
 
@@ -249,8 +252,8 @@ const PRIMARY_KEYS = {
   centreorganizationlink: "id",
   userorganizationcentrelink: "id",
   masternotificationtime: "id",
-  devicescategory: "CATEGORY_ID"
-
+  devicescategory: "CATEGORY_ID",
+  mastersubscriptioninfo: "Subscription_ID"
 };
 
 
@@ -274,7 +277,8 @@ const FIELD_SCHEMAS = {
   centreorganizationlink: ["ID", "ORGANIZATION_ID","CENTRE_ID"],
   userorganizationcentrelink: ["USER_ID","ORGANIZATION_ID","CENTRE_ID"],
   masternotificationtime: ["NOTIFICATION_TIME","ORGANIZATION_ID"],
-  devicecategory:["CATEGORY_ID","CATEGORY_NAME"]
+  devicecategory:["CATEGORY_ID","CATEGORY_NAME"],
+  mastersubscriptioninfo:["Subscription_ID","Package_Name"]
 
 };
 
@@ -348,6 +352,7 @@ async function loadDropdowns(){
     dropdownData.roles   = await fetchJSON(API.masterrole);
     dropdownData.user   = await fetchJSON(API.createuser);
     dropdownData.devicescategory = await fetchJSON(API.devicescategory);
+    dropdownData.mastersubscriptioninfo = await fetchJSON(API.mastersubscriptioninfo)
   }catch(err){
     console.error("Dropdown preload failed:", err);
   }
@@ -430,7 +435,7 @@ async function loadTable(table) {
 
   // ✅ Render table headers with friendly names
   const displayHeaders = headers.map(h => {
-    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog"].includes(currentTable) && h === pk) {
+    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog","mastersubscriptioninfo"].includes(currentTable) && h === pk) {
       return "S_NO";
     }
     return HEADER_LABELS[h] || h;
@@ -461,7 +466,7 @@ if (currentData.length) {
       let cellVal = row[h] ?? "";
 
       // PK → S_NO numbering
-      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory"].includes(currentTable)) {
+      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","mastersubcriptioninfo"].includes(currentTable)) {
         return `<td>${rowIdx + 1}</td>`;
       }
 
@@ -501,6 +506,11 @@ if (currentData.length) {
       if (h === "UOM_ID") {
         const uom = (dropdownData.uoms || []).find(u => u.UOM_ID == row[h]);
         cellVal = uom ? uom.UOM_NAME : row[h];
+      }
+
+      if (h === "Subcription_ID"){
+        const package = (dropdownData.packages || [].find(p => p.Subcription_ID ==row[h]));
+        cellVal = package ? package.Package_Name : row[h];
       }
 
       // Format date
@@ -753,121 +763,128 @@ if (currentTable === "createuser") {
 
     
 
-    // Organization dropdown
-    if(key==="ORG_ID" || key==="ORGANIZATION_ID"){
-      const options = dropdownData.orgs || [];
-      fieldsDiv.innerHTML += `<div class="mb-3">
-        <label class="form-label">ORGANIZATION</label>
-        <select class="form-select" name="${key}">
-          <option value="">-- Choose Organization --</option>
-          ${options.map(o=>`<option value="${o.ORGANIZATION_ID}" ${o.ORGANIZATION_ID==(row[key]??"")?'selected':''}>${o.ORGANIZATION_NAME}</option>`).join("")}
-        </select>
-      </div>`;
-      return;
-    }
-
-    // Centre dropdown
-    if(key==="CENTRE_ID"){
-      const options = dropdownData.centres || [];
-      fieldsDiv.innerHTML += `<div class="mb-3">
-        <label class="form-label">CENTRE</label>
-        <select class="form-select" name="CENTRE_ID">
-          <option value="">-- Choose Centre --</option>
-          ${options.map(c=>`<option value="${c.CENTRE_ID}" ${c.CENTRE_ID==(row["CENTRE_ID"]||"")?'selected':''}>${c.CENTRE_NAME}</option>`).join('')}
-        </select>
-      </div>`;
-      return;
-    }
-
-    // Other dropdowns (UOM, Device, Sensor, Parameter, Role)
-    if(key==="UOM_ID"){
-      const options = dropdownData.uoms || [];
-      fieldsDiv.innerHTML += `
-        <div class="mb-3">
-          <label class="form-label">UNIT</label>
-          <select class="form-select" name="UOM_ID">
-            <option value="">-- Choose UOM  --</option>
-            ${options.map(o=>`<option value="${o.UOM_ID}" ${(o.UOM_ID==(row[key]??""))?'selected':''}>${o.UOM_NAME}</option>`).join("")}
-          </select>
-        </div>`;
-      return;
-    }
-    if(key==="DEVICE_ID"){
-      const options = dropdownData.devices || [];
-      fieldsDiv.innerHTML += `
-        <div class="mb-3">
-          <label class="form-label">DEVICE</label>
-          <select class="form-select" name="DEVICE_ID">
-            <option value="">-- Choose Device  --</option>
-            ${options.map(o=>`<option value="${o.DEVICE_ID}" ${(o.DEVICE_ID==(row[key]??""))?'selected':''}>${o.DEVICE_NAME}</option>`).join("")}
-          </select>
-        </div>`;
-      return;
-    }
-    if(key==="SENSOR_ID"){
-      const options = dropdownData.sensors || [];
-      fieldsDiv.innerHTML += `
-        <div class="mb-3">
-          <label class="form-label">SENSOR</label>
-          <select class="form-select" name="SENSOR_ID">
-            <option value="">-- Choose Sensor  --</option>
-            ${options.map(o=>`<option value="${o.SENSOR_ID}" ${(o.SENSOR_ID==(row[key]??""))?'selected':''}>${o.SENSOR_NAME}</option>`).join("")}
-          </select>
-        </div>`;
-      return;
-    }
-    if(key==="PARAMETER_ID"){
-      const options = dropdownData.parameters || [];
-      fieldsDiv.innerHTML += `
-        <div class="mb-3">
-          <label class="form-label">PARAMETER</label>
-          <select class="form-select" name="PARAMETER_ID">
-            <option value="">-- Choose Parameter  --</option>
-            ${options.map(o=>`<option value="${o.PARAMETER_ID}" ${(o.PARAMETER_ID==(row[key]??""))?'selected':''}>${o.PARAMETER_NAME}</option>`).join("")}
-          </select>
-        </div>`;
-      return;
-    }
-
-if (key === "ROLE_ID") {
-  const options = dropdownData.roles || [];
-  fieldsDiv.innerHTML += `
-    <div class="mb-3">
-      <label class="form-label">Role</label>
-      <select class="form-select" name="ROLE_ID">
-        <option value="">-- Choose Role --</option>
-        ${options.map(r => `
-          <option value="${r.ROLE_ID}" ${(String(r.ROLE_ID) === String(row.ROLE_ID ?? "")) ? "selected" : ""}>
-            ${r.ROLE_NAME}
-          </option>`).join("")}
-      </select>
-    </div>`;
-  return;
-}
-    if(key==="USER_ID"){
-  const options = dropdownData.user || [];
+// Organization dropdown
+if (key === "ORG_ID" || key === "ORGANIZATION_ID") {
+  const options = (dropdownData.orgs || []).sort((a, b) => b.ORGANIZATION_ID - a.ORGANIZATION_ID);
   fieldsDiv.innerHTML += `<div class="mb-3">
-    <label class="form-label">USER</label>
-    <select class="form-select" name="USER_ID">
-      <option value="">-- Choose User --</option>
-      ${options.map(u=>`<option value="${u.USER_ID}" ${(u.USER_ID==(row[key]??""))?'selected':''}>${u.USERNAME}</option>`).join("")}
+    <label class="form-label">ORGANIZATION</label>
+    <select class="form-select" name="${key}">
+      <option value="">-- Choose Organization --</option>
+      ${options.map(o => `<option value="${o.ORGANIZATION_ID}" ${o.ORGANIZATION_ID == (row[key] ?? "") ? 'selected' : ''}>${o.ORGANIZATION_NAME}</option>`).join("")}
     </select>
   </div>`;
   return;
 }
 
-    if(key==="CATEGORY_ID"){
-      const options = dropdownData.devicescategory || [];
-      fieldsDiv.innerHTML += `
-        <div class="mb-3">
-          <label class="form-label">CATEGORY</label>
-          <select class="form-select" name="CATEGORY_ID">
-            <option value="">-- Choose Category  --</option>
-            ${options.map(dc=>`<option value="${dc.CATEGORY_ID}" ${(dc.CATEGORY_ID==(row[key]??""))?'selected':''}>${dc.CATEGORY_NAME}</option>`).join("")}
-          </select>
-        </div>`;
-      return;
-    }
+// Centre dropdown
+if (key === "CENTRE_ID") {
+  const options = (dropdownData.centres || []).sort((a, b) => b.CENTRE_ID - a.CENTRE_ID);
+  fieldsDiv.innerHTML += `<div class="mb-3">
+    <label class="form-label">CENTRE</label>
+    <select class="form-select" name="CENTRE_ID">
+      <option value="">-- Choose Centre --</option>
+      ${options.map(c => `<option value="${c.CENTRE_ID}" ${c.CENTRE_ID == (row["CENTRE_ID"] || "") ? 'selected' : ''}>${c.CENTRE_NAME}</option>`).join('')}
+    </select>
+  </div>`;
+  return;
+}
+
+// UOM dropdown
+if (key === "UOM_ID") {
+  const options = (dropdownData.uoms || []).sort((a, b) => b.UOM_ID - a.UOM_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">UNIT</label>
+      <select class="form-select" name="UOM_ID">
+        <option value="">-- Choose UOM --</option>
+        ${options.map(o => `<option value="${o.UOM_ID}" ${(o.UOM_ID == (row[key] ?? "")) ? 'selected' : ''}>${o.UOM_NAME}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+
+// Device dropdown
+if (key === "DEVICE_ID") {
+  const options = (dropdownData.devices || []).sort((a, b) => b.DEVICE_ID - a.DEVICE_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">DEVICE</label>
+      <select class="form-select" name="DEVICE_ID">
+        <option value="">-- Choose Device --</option>
+        ${options.map(o => `<option value="${o.DEVICE_ID}" ${(o.DEVICE_ID == (row[key] ?? "")) ? 'selected' : ''}>${o.DEVICE_NAME}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+
+// Sensor dropdown
+if (key === "SENSOR_ID") {
+  const options = (dropdownData.sensors || []).sort((a, b) => b.SENSOR_ID - a.SENSOR_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">SENSOR</label>
+      <select class="form-select" name="SENSOR_ID">
+        <option value="">-- Choose Sensor --</option>
+        ${options.map(o => `<option value="${o.SENSOR_ID}" ${(o.SENSOR_ID == (row[key] ?? "")) ? 'selected' : ''}>${o.SENSOR_NAME}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+
+// Parameter dropdown
+if (key === "PARAMETER_ID") {
+  const options = (dropdownData.parameters || []).sort((a, b) => b.PARAMETER_ID - a.PARAMETER_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">PARAMETER</label>
+      <select class="form-select" name="PARAMETER_ID">
+        <option value="">-- Choose Parameter --</option>
+        ${options.map(o => `<option value="${o.PARAMETER_ID}" ${(o.PARAMETER_ID == (row[key] ?? "")) ? 'selected' : ''}>${o.PARAMETER_NAME}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+
+// Role dropdown
+if (key === "ROLE_ID") {
+  const options = (dropdownData.roles || []).sort((a, b) => b.ROLE_ID - a.ROLE_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">ROLE</label>
+      <select class="form-select" name="ROLE_ID">
+        <option value="">-- Choose Role --</option>
+        ${options.map(r => `<option value="${r.ROLE_ID}" ${(String(r.ROLE_ID) === String(row.ROLE_ID ?? "")) ? "selected" : ""}>${r.ROLE_NAME}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+
+// User dropdown
+if (key === "USER_ID") {
+  const options = (dropdownData.user || []).sort((a, b) => b.USER_ID - a.USER_ID);
+  fieldsDiv.innerHTML += `<div class="mb-3">
+    <label class="form-label">USER</label>
+    <select class="form-select" name="USER_ID">
+      <option value="">-- Choose User --</option>
+      ${options.map(u => `<option value="${u.USER_ID}" ${(u.USER_ID == (row[key] ?? "")) ? 'selected' : ''}>${u.USERNAME}</option>`).join("")}
+    </select>
+  </div>`;
+  return;
+}
+
+// Category dropdown
+if (key === "CATEGORY_ID") {
+  const options = (dropdownData.devicescategory || []).sort((a, b) => b.CATEGORY_ID - a.CATEGORY_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">CATEGORY</label>
+      <select class="form-select" name="CATEGORY_ID">
+        <option value="">-- Choose Category --</option>
+        ${options.map(dc => `<option value="${dc.CATEGORY_ID}" ${(dc.CATEGORY_ID == (row[key] ?? "")) ? 'selected' : ''}>${dc.CATEGORY_NAME}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
 
     //  if(key==="ROLE_ID"){
     //   const options = dropdownData.roles || [];
