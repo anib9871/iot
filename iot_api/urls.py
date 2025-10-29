@@ -10,7 +10,7 @@ from .views import (
     DeviceReadingLogViewSet, MasterDeviceViewSet, CompassDatesViewSet,
     MasterOrganizationViewSet, MasterParameterViewSet, MasterSensorViewSet,
     SeUserViewSet, SensorParameterLinkViewSet, DeviceSensorLinkViewSet,
-    DeviceAlarmCallLogViewSet, DeviceAlarmLogViewSet, MasterUOMViewSet , MasterCentreViewSet, MasterRoleViewSet ,CentreOrganizationLinkViewSet, MasterUserViewSet , UserOrganizationCentreLinkViewSet, MasterNotificationTimeViewSet , DeviceCategoryViewSet
+    DeviceAlarmCallLogViewSet, DeviceAlarmLogViewSet, MasterUOMViewSet , MasterCentreViewSet, MasterRoleViewSet ,CentreOrganizationLinkViewSet, MasterUserViewSet , UserOrganizationCentreLinkViewSet, MasterNotificationTimeViewSet , DeviceCategoryViewSet , MasterSubscriptionInfoViewSet,
 )
 
 # Router setup
@@ -34,7 +34,7 @@ router.register(r'masteruser', MasterUserViewSet)
 router.register(r'userorganizationcentrelink', UserOrganizationCentreLinkViewSet )
 router.register(r'masternotificationtime', MasterNotificationTimeViewSet)
 router.register(r'devicecategory' , DeviceCategoryViewSet)
-
+router.register(r'mastersubscriptioninfo', MasterSubscriptionInfoViewSet)
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
