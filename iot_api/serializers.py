@@ -6,7 +6,7 @@ from .models import (
     DeviceReadingLog, MasterDevice, CompassDates,
     MasterOrganization, MasterParameter, MasterSensor,
     SeUser, SensorParameterLink, DeviceSensorLink,
-    DeviceAlarmCallLog, DeviceAlarmLog, MasterUOM,MasterCentre, MasterRole , CentreOrganizationLink, MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory
+    DeviceAlarmCallLog, DeviceAlarmLog, MasterUOM,MasterCentre, MasterRole , CentreOrganizationLink, MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory, MasterSubscriptionInfo
 )
 
 # -------------------------
@@ -122,7 +122,6 @@ class DeviceAlarmLogSerializer(serializers.ModelSerializer):
         fields = ["id","ALARM_TIME","NORMALIZED_TIME","DEVICE_ID","SENSOR_ID","PARAMETER_ID","ALARM_DATE","READING","NORMALIZED_DATE","SMS_DATE","SMS_TIME","EMAIL_DATE",	"EMAIL_TIME","NORMALIZED_SMS_DATE",	"NORMALIZED_SMS_TIME","NORMALIZED_EMAIL_DATE","NORMALIZED_EMAIL_TIME","ORGANIZATION_ID","CENTRE_ID", "IS_ACTIVE"]
 
 
-
 # UOM
 
 class MasterUOMSerializer(serializers.ModelSerializer):
@@ -215,3 +214,13 @@ class DeviceCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = DeviceCategory
         fields = ["CATEGORY_ID","CATEGORY_NAME"]
+
+
+# -------------------------
+# Master SubcriptionInfo
+# -------------------------
+class MasterSubscriptionInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MasterSubscriptionInfo
+        fields = ["Subscription_ID","Package_Name",]
+
