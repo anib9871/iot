@@ -657,3 +657,17 @@ class DeviceCategory(models.Model):
 
     class Meta:
         db_table = 'device_category'
+
+class MasterSubscriptionInfo(models.Model):
+    Subscription_ID = models.AutoField(primary_key=True)
+    Package_Name = models.CharField(max_length=500)
+    CRT_date = models.DateTimeField(null=True, blank=True)
+    CRT_BY = models.CharField(max_length=45, null=True, blank=True)
+
+    class Meta:
+        db_table = 'Master_Subscription_Info'
+        verbose_name = 'Master Subscription Info'
+        verbose_name_plural = 'Master Subscription Infos'
+
+    def __str__(self):
+        return self.Package_Name
