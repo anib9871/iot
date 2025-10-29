@@ -13,18 +13,18 @@ from rest_framework.response import Response
 from .models import (
     MasterDevice, DeviceReadingLog, DeviceAlarmLog, 
     MasterOrganization, MasterParameter, MasterSensor,
-    CompassDates, SeUser, SensorParameterLink, DeviceSensorLink, DeviceAlarmCallLog , MasterUOM , MasterCentre , MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime , DeviceCategory
+    CompassDates, SeUser, SensorParameterLink, DeviceSensorLink, DeviceAlarmCallLog , MasterUOM , MasterCentre , MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime , DeviceCategory ,MasterSubscriptionInfo
 )
 from .serializers import (
     MasterDeviceSerializer, DeviceReadingLogSerializer, DeviceAlarmLogSerializer,
     MasterOrganizationSerializer, MasterParameterSerializer, MasterSensorSerializer,
     CompassDatesSerializer, SeUserSerializer, SensorParameterLinkSerializer,
-    DeviceSensorLinkSerializer, DeviceAlarmCallLogSerializer , MasterUOMSerializer , MasterCentreSerializer , MasterRoleSerializer , CentreOrganizationLinkSerializer,MasterUserSerializer,UserOrganizationCentreLinkSerializer,MasterNotificationTimeSerializer , DeviceCategorySerializer
+    DeviceSensorLinkSerializer, DeviceAlarmCallLogSerializer , MasterUOMSerializer , MasterCentreSerializer , MasterRoleSerializer , CentreOrganizationLinkSerializer,MasterUserSerializer,UserOrganizationCentreLinkSerializer,MasterNotificationTimeSerializer , DeviceCategorySerializer , MasterSubscriptionInfoSerializer
 )
 
 from django.contrib import messages
 from django.db import connection
-# from .utils import send_sms
+
 
 # -------------------------
 # Login View
@@ -36,8 +36,8 @@ def login_view(request):
 
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT USERNAME, ROLE_ID
-                FROM master_user
+                SELECT USERNAME, ROLE_ID 
+                FROM master_user 
                 WHERE USERNAME=%s AND PASSWORD=%s
             """, [username, password])
             row = cursor.fetchone()
@@ -98,6 +98,7 @@ def dashboard_view(request):
         'master_user_count' : MasterUser.objects.count(),
         'user_organization_centre_link_count': UserOrganizationCentreLink.objects.count(),
         'device_category': DeviceCategory.objects.count(),
+        'master_subcriptioninfo': MasterSubscriptionInfo.objects.count(),
     }
     return render(request, 'dashboard.html', context)
 
@@ -190,6 +191,10 @@ class MasterNotificationTimeViewSet(viewsets.ModelViewSet):
 class DeviceCategoryViewSet(viewsets.ModelViewSet):
     queryset = DeviceCategory.objects.all()
     serializer_class = DeviceCategorySerializer
+
+class MasterSubscriptionInfoViewSet(viewsets.ModelViewSet):
+    queryset = MasterSubscriptionInfo.objects.all()
+    serializer_class = MasterSubscriptionInfoSerializer
 
 
 # -------------------------
