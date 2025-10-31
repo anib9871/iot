@@ -13,13 +13,13 @@ from rest_framework.response import Response
 from .models import (
     MasterDevice, DeviceReadingLog, DeviceAlarmLog, 
     MasterOrganization, MasterParameter, MasterSensor,
-    CompassDates, SeUser, SensorParameterLink, DeviceSensorLink, DeviceAlarmCallLog , MasterUOM , MasterCentre , MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime , DeviceCategory ,MasterSubscriptionInfo
+    CompassDates, SeUser, SensorParameterLink, DeviceSensorLink, DeviceAlarmCallLog , MasterUOM , MasterCentre , MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime , DeviceCategory ,MasterSubscriptionInfo , Master_Plan_Type, SubscriptionHistory,
 )
 from .serializers import (
     MasterDeviceSerializer, DeviceReadingLogSerializer, DeviceAlarmLogSerializer,
     MasterOrganizationSerializer, MasterParameterSerializer, MasterSensorSerializer,
     CompassDatesSerializer, SeUserSerializer, SensorParameterLinkSerializer,
-    DeviceSensorLinkSerializer, DeviceAlarmCallLogSerializer , MasterUOMSerializer , MasterCentreSerializer , MasterRoleSerializer , CentreOrganizationLinkSerializer,MasterUserSerializer,UserOrganizationCentreLinkSerializer,MasterNotificationTimeSerializer , DeviceCategorySerializer , MasterSubscriptionInfoSerializer
+    DeviceSensorLinkSerializer, DeviceAlarmCallLogSerializer , MasterUOMSerializer , MasterCentreSerializer , MasterRoleSerializer , CentreOrganizationLinkSerializer,MasterUserSerializer,UserOrganizationCentreLinkSerializer,MasterNotificationTimeSerializer , DeviceCategorySerializer , MasterSubscriptionInfoSerializer , Master_PlanTypeSerializer,Subscription_HistorySerializer
 )
 
 from django.contrib import messages
@@ -99,6 +99,10 @@ def dashboard_view(request):
         'user_organization_centre_link_count': UserOrganizationCentreLink.objects.count(),
         'device_category': DeviceCategory.objects.count(),
         'master_subcriptioninfo': MasterSubscriptionInfo.objects.count(),
+        'plan_type': Master_Plan_Type.objects.count(),
+        'subscription_history': SubscriptionHistory.objects.count(),
+
+
     }
     return render(request, 'dashboard.html', context)
 
@@ -196,6 +200,13 @@ class MasterSubscriptionInfoViewSet(viewsets.ModelViewSet):
     queryset = MasterSubscriptionInfo.objects.all()
     serializer_class = MasterSubscriptionInfoSerializer
 
+class MasterPlanTypeViewSet(viewsets.ModelViewSet):
+    queryset = Master_Plan_Type.objects.all()
+    serializer_class = Master_PlanTypeSerializer
+
+class Subscription_HistoryViewSet(viewsets.ModelViewSet):
+    queryset = SubscriptionHistory.objects.all()
+    serializer_class = Subscription_HistorySerializer
 
 # -------------------------
 # Extra Simple APIs for JS
@@ -229,3 +240,39 @@ def user_org_centre_api(request):
     links = UserOrganizationCentreLink.objects.filter(USER_ID=user_id)
     serializer = UserOrganizationCentreLinkSerializer(links, many=True)
     return Response(serializer.data)
+
+
+from datetime import date
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import SubscriptionHistory, MasterDevice  # import models as needed
+
+from datetime import date
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import SubscriptionHistory, MasterSubscriptionInfo
+
+@api_view(['GET'])
+def devicecheck(request):
+    today = date.today()
+    results = []
+
+    subscriptions = SubscriptionHistory.objects.all()
+
+    for sub in subscriptions:
+        # ✅ Fetch Plan Type Name
+        plan = Master_Plan_Type.objects.filter(Plan_ID=sub.Plan_ID).first()
+        plan_name = plan.Plan_Name if plan else "Unknown Plan"
+
+        # ✅ Append only required fields
+        results.append({
+            "Device_ID": sub.Device_ID,
+            "Plan_Type": plan_name,
+            "Subcription_End_Date": sub.Subcription_End_date.strftime("%Y-%m-%d") if sub.Subcription_End_date else None
+        })
+
+    return Response({
+        "date_checked": today.strftime("%Y-%m-%d"),
+        "devices": results,
+        "total_count": len(results)
+    })
