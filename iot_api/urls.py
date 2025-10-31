@@ -10,7 +10,7 @@ from .views import (
     DeviceReadingLogViewSet, MasterDeviceViewSet, CompassDatesViewSet,
     MasterOrganizationViewSet, MasterParameterViewSet, MasterSensorViewSet,
     SeUserViewSet, SensorParameterLinkViewSet, DeviceSensorLinkViewSet,
-    DeviceAlarmCallLogViewSet, DeviceAlarmLogViewSet, MasterUOMViewSet , MasterCentreViewSet, MasterRoleViewSet ,CentreOrganizationLinkViewSet, MasterUserViewSet , UserOrganizationCentreLinkViewSet, MasterNotificationTimeViewSet , DeviceCategoryViewSet , MasterSubscriptionInfoViewSet,
+    DeviceAlarmCallLogViewSet, DeviceAlarmLogViewSet, MasterUOMViewSet , MasterCentreViewSet, MasterRoleViewSet ,CentreOrganizationLinkViewSet, MasterUserViewSet , UserOrganizationCentreLinkViewSet, MasterNotificationTimeViewSet , DeviceCategoryViewSet , MasterSubscriptionInfoViewSet, MasterPlanTypeViewSet, Subscription_HistoryViewSet
 )
 
 # Router setup
@@ -35,6 +35,9 @@ router.register(r'userorganizationcentrelink', UserOrganizationCentreLinkViewSet
 router.register(r'masternotificationtime', MasterNotificationTimeViewSet)
 router.register(r'devicecategory' , DeviceCategoryViewSet)
 router.register(r'mastersubscriptioninfo', MasterSubscriptionInfoViewSet)
+router.register(r'masterplantype', MasterPlanTypeViewSet)
+router.register(r'subscriptionhistory', Subscription_HistoryViewSet)
+
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
@@ -45,5 +48,5 @@ urlpatterns = [
     path('user/', views.user_dashboard, name='user'),
     path("api/currentuser/", current_user_api, name="current_user"),
     path("api/userorgcentre/", user_org_centre_api, name="user_org_centre"),
-    
+     path('api/devicecheck/', views.devicecheck, name='devicecheck'),
 ]
