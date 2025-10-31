@@ -10,7 +10,7 @@ from .models import (
     MasterParameter,
     MasterSensor,
     SeUser,
-    SensorParameterLink, MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory , MasterSubscriptionInfo
+    SensorParameterLink, MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory , MasterSubscriptionInfo , Master_Plan_Type , SubscriptionHistory
 )
 from django import forms
 # from .models import MasterUser
@@ -57,7 +57,7 @@ class DeviceSensorLinkAdmin(admin.ModelAdmin):
 # 6️⃣ Master Device
 @admin.register(MasterDevice)
 class MasterDeviceAdmin(admin.ModelAdmin):
-    list_display = ('DEVICE_ID','DEVICE_NAME','DEVICE_MNEMONIC','DEVICE_STATUS','ORGANIZATION_ID','CENTRE_ID')
+    list_display = ('DEVICE_ID','DEVICE_NAME','DEVICE_MNEMONIC','DEVICE_STATUS','ORGANIZATION_ID','CENTRE_ID',)
     search_fields = ('DEVICE_NAME','DEVICE_MNEMONIC')
     list_filter = ('DEVICE_STATUS',)
 
@@ -174,3 +174,19 @@ class MasterSubscriptionInfoAdmin(admin.ModelAdmin):
     list_display = ("Subscription_ID", "Package_Name", "CRT_date", "CRT_BY")
     search_fields = ("Subscription_ID", "Package_Name", "CRT_date", "CRT_BY")
     list_filter = ("Subscription_ID", "Package_Name", "CRT_date", "CRT_BY")
+
+
+# Plan_Type
+@admin.register(models.Master_Plan_Type)
+class MasterPlanTypeAdmin(admin.ModelAdmin):
+    list_display = ("Plan_ID", "Plan_Name")
+    search_fields = ("Plan_ID", "Plan_Name")
+    list_filter = ("Plan_ID", "Plan_Name")
+
+# subscription History
+@admin.register(models.SubscriptionHistory)
+class SubscriptionHistoryAdmin(admin.ModelAdmin):
+    list_display = ("id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date")
+    search_fields = ("id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date")
+    list_filter = ("id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date")
+
