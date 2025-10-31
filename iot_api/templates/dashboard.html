@@ -82,6 +82,8 @@ body { background: #f1f3f8; font-family: 'Segoe UI', sans-serif; padding-top: 70
 <li><a class="dropdown-item" href="#" onclick="loadTable('devices category')">Devices Category</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master devices')">Devices</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master subscriptioninfo')">Master Subscription Info</a></li>
+<li><a class="dropdown-item" href="#" onclick="loadTable('master plan type')">Master Plan Type</a></li>
+<li><a class="dropdown-item" href="#" onclick="loadTable('master subscription history')"> Subscription History</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master sensor')">Sensors</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master parameter')">Parameter</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master uom')">Uom</a></li>
@@ -193,6 +195,8 @@ const API = {
   userorganizationcentrelink: BASE_URL + "/api/userorganizationcentrelink/",
   masternotificationtime: BASE_URL + "/api/masternotificationtime/",
   mastersubscriptioninfo: BASE_URL +"/api/mastersubscriptioninfo/",
+  masterplantype: BASE_URL +"/api/masterplantype/",
+  mastersubscriptionhistory: BASE_URL +"/api/subscriptionhistory/"
 
   //   masterorganizations: "http://127.0.0.1:8000/api/masterorganization/",
   // mastercentre:        "http://127.0.0.1:8000/api/mastercentre/",
@@ -219,6 +223,7 @@ const API = {
 const HEADER_LABELS = {
   ORGANIZATION_ID: "ORGANIZATION NAME",
   DEVICE_ID: "DEVICE NAME",
+  Device_ID: "DEVICE NAME",
   CENTRE_ID: "CENTRE NAME",
   SENSOR_ID: "SENSOR NAME",
   PARAMETER_ID: "PARAMETER NAME",
@@ -226,7 +231,8 @@ const HEADER_LABELS = {
   UOM_ID: "UNIT",
   USER_ID: "USER NAME",
   CATEGORY_ID: "CATEGORY NAME",
-  Subcription_ID:"Subcription_ID"
+  Subscription_ID:"Subscription_Name",
+  Plan_ID:"Plan_Name",
 };
 
 
@@ -253,7 +259,9 @@ const PRIMARY_KEYS = {
   userorganizationcentrelink: "id",
   masternotificationtime: "id",
   devicescategory: "CATEGORY_ID",
-  mastersubscriptioninfo: "Subscription_ID"
+  mastersubscriptioninfo: "Subscription_ID",
+  masterplantype: "Plan_ID",
+  mastersubscriptionhistory: "id"
 };
 
 
@@ -278,8 +286,9 @@ const FIELD_SCHEMAS = {
   userorganizationcentrelink: ["USER_ID","ORGANIZATION_ID","CENTRE_ID"],
   masternotificationtime: ["NOTIFICATION_TIME","ORGANIZATION_ID"],
   devicecategory:["CATEGORY_ID","CATEGORY_NAME"],
-  mastersubscriptioninfo:["Subscription_ID","Package_Name"]
-
+  mastersubscriptioninfo:["Subscription_ID","Package_Name",],
+  masterplantype:["Plan_ID","Plan_Name"],
+  mastersubscriptionhistory:["id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date"]
 };
 
 // helpers
@@ -353,6 +362,8 @@ async function loadDropdowns(){
     dropdownData.user   = await fetchJSON(API.createuser);
     dropdownData.devicescategory = await fetchJSON(API.devicescategory);
     dropdownData.mastersubscriptioninfo = await fetchJSON(API.mastersubscriptioninfo)
+    dropdownData.masterplantype = await fetchJSON(API.masterplantype)
+    dropdownData.mastersubscriptionhistory = await fetchJSON(API.mastersubscriptionhistory)
   }catch(err){
     console.error("Dropdown preload failed:", err);
   }
@@ -415,10 +426,45 @@ async function loadTable(table) {
       }
     }
 
+
   } catch (err) {
     console.error("Fetch table failed:", err);
     currentData = [];
   }
+
+  function sortDescending(table, data) {
+  if (!data || data.length === 0) return data;
+
+  // ✅ mastersubscriptionhistory: latest entry first
+  if (table === "mastersubscriptionhistory") {
+    // Prefer ID-based DESC (most reliable)
+    if (data[0].id) {
+      return data.sort((a, b) => b.id - a.id);
+    }
+    // Fallback to date if ID not found
+    return data.sort((a, b) => new Date(b.Subscription_Start_date) - new Date(a.Subscription_Start_date));
+  }
+
+  // ✅ Default sort logic for others
+  const sample = data[0];
+  const dateKeys = Object.keys(sample).filter(k =>
+    k.toLowerCase().includes("date") || k.toLowerCase().includes("time")
+  );
+  if (dateKeys.length) {
+    const key = dateKeys[0];
+    return data.sort((a, b) => new Date(b[key]) - new Date(a[key]));
+  }
+
+  const numberKeys = Object.keys(sample).filter(
+    k => typeof sample[k] === "number" || !isNaN(Number(sample[k]))
+  );
+  if (numberKeys.length) {
+    const key = numberKeys[0];
+    return data.sort((a, b) => Number(b[key]) - Number(a[key]));
+  }
+
+  return data;
+}
 
   const tableEl = document.getElementById('mainTable');
   const thead = tableEl.querySelector('thead');
@@ -435,7 +481,7 @@ async function loadTable(table) {
 
   // ✅ Render table headers with friendly names
   const displayHeaders = headers.map(h => {
-    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog","mastersubscriptioninfo"].includes(currentTable) && h === pk) {
+    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog","mastersubscriptioninfo","masterplantype","mastersubscriptionhistory",].includes(currentTable) && h === pk) {
       return "S_NO";
     }
     return HEADER_LABELS[h] || h;
@@ -466,7 +512,7 @@ if (currentData.length) {
       let cellVal = row[h] ?? "";
 
       // PK → S_NO numbering
-      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","mastersubcriptioninfo"].includes(currentTable)) {
+      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","mastersubscriptioninfo","masterplantype","mastersubscriptionhistory",].includes(currentTable)) {
         return `<td>${rowIdx + 1}</td>`;
       }
 
@@ -487,6 +533,11 @@ if (currentData.length) {
         const device = (dropdownData.devices || []).find(d => d.DEVICE_ID == row[h]);
         cellVal = device ? device.DEVICE_NAME : row[h];
       }
+      if (h === "Device_ID") {
+        const device = (dropdownData.devices || []).find(d => d.DEVICE_ID == row[h]);
+        cellVal = device ? device.DEVICE_NAME : row[h];
+      }
+      
       if (h === "SENSOR_ID" && currentTable !== "mastersensor") {
         const sensor = (dropdownData.sensors || []).find(s => s.SENSOR_ID == row[h]);
         cellVal = sensor ? sensor.SENSOR_NAME : row[h];
@@ -508,10 +559,16 @@ if (currentData.length) {
         cellVal = uom ? uom.UOM_NAME : row[h];
       }
 
-      if (h === "Subcription_ID"){
-        const package = (dropdownData.packages || [].find(p => p.Subcription_ID ==row[h]));
-        cellVal = package ? package.Package_Name : row[h];
+      if (h === "Subscription_ID") {
+        const pkg = (dropdownData.mastersubscriptioninfo || []).find(p => p.Subscription_ID == row[h]);
+        cellVal = pkg ? pkg.Package_Name : row[h];
       }
+
+      if (h === "Plan_ID") {
+        const plan = (dropdownData.masterplantype || []).find(p => p.Plan_ID == row[h]);
+        cellVal = plan ? plan.Plan_Name : row[h];
+}
+
 
       // Format date
       if (/^\d{4}-\d{2}-\d{2}$/.test(cellVal)) {
@@ -817,6 +874,49 @@ if (key === "DEVICE_ID") {
   return;
 }
 
+if (key === "Device_ID") {
+  const options = (dropdownData.devices || []).sort((a, b) => b.DEVICE_ID - a.DEVICE_ID); // ascending
+  const selectOptions = options.map(o => `
+    <option value="${o.DEVICE_ID}" ${o.DEVICE_ID == (row[key] ?? "") ? 'selected' : ''}>${o.DEVICE_NAME}</option>
+  `).join("");
+
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">DEVICE</label>
+      <select class="form-select" name="Device_ID">
+        <option value="">-- Choose Device --</option>
+        ${selectOptions}
+      </select>
+    </div>`;
+  return;
+}
+
+
+if (key === "Subscription_ID") {
+  const options = (dropdownData.mastersubscriptioninfo || []).sort((a, b) => b.Subscription_ID - a.Subscription_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">Package Name</label>
+      <select class="form-select" name="Subscription_ID">
+        <option value="">-- Choose Package --</option>
+        ${options.map(o => `<option value="${o.Subscription_ID}" ${(o.Subscription_ID == (row[key] ?? "")) ? 'selected' : ''}>${o.Package_Name}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+if (key === "Plan_ID") {
+  const options = (dropdownData.masterplantype || []).sort((a, b) => b.Plan_ID - a.Plan_ID);
+  fieldsDiv.innerHTML += `
+    <div class="mb-3">
+      <label class="form-label">Plan Type</label>
+      <select class="form-select" name="Plan_ID">
+        <option value="">-- Choose Plan --</option>
+        ${options.map(o => `<option value="${o.Plan_ID}" ${(o.Plan_ID == (row[key] ?? "")) ? 'selected' : ''}>${o.Plan_Name}</option>`).join("")}
+      </select>
+    </div>`;
+  return;
+}
+
 // Sensor dropdown
 if (key === "SENSOR_ID") {
   const options = (dropdownData.sensors || []).sort((a, b) => b.SENSOR_ID - a.SENSOR_ID);
@@ -928,7 +1028,11 @@ if (key === "CATEGORY_ID") {
     if(k.includes("email")) type="email";
     else if(k.includes("password")) type="password";
     else if(k.includes("validity_start") || k.includes("validity_end")) type="date";
-    else if(k.includes("date") || k.endsWith("_at") || k.endsWith("_time")) type="datetime-local";
+    else if(k.includes("date"))
+  type = "date";
+else if(k.endsWith("_at") || k.endsWith("_time"))
+  type = "datetime-local";
+
     else if(k.includes("upper")||k.includes("lower")||k.includes("value")||k.includes("threshold")||k.endsWith("_id")) type="number";
 
     fieldsDiv.innerHTML += `
