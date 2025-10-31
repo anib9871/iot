@@ -105,20 +105,16 @@ class DeviceReadingLog(models.Model):
         db_table = "device_reading_log"
 
     def save(self, *args, **kwargs):
-        from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
-        from django.utils import timezone
-        now_dt = timezone.now()
-
-    # 🔹 Step 1: Set reading date/time
         if not self.READING_DATE:
-            self.READING_DATE = now_dt.date()
+            self.READING_DATE = timezone.now().date()
+        # Ensure READING_TIME is set
         if not self.READING_TIME:
-            self.READING_TIME = now_dt.time().replace(microsecond=0)
+            self.READING_TIME = timezone.now().time().replace(microsecond=0)
+        super().save(*args, **kwargs)  # Save reading first
 
-    # 🔹 Step 2: Save reading entry
-        super().save(*args, **kwargs)
+        # ================== Fetch Parameter ==================
+        from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
 
-    # 🔹 Step 3: Fetch parameter
         try:
             param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
         except MasterParameter.DoesNotExist:
@@ -130,8 +126,8 @@ class DeviceReadingLog(models.Model):
             return
 
         breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
+        print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
 
-    # 🔹 Step 4: Check for active alarm
         active_alarm = DeviceAlarmLog.objects.filter(
             DEVICE_ID=self.DEVICE_ID,
             SENSOR_ID=self.SENSOR_ID,
@@ -139,10 +135,9 @@ class DeviceReadingLog(models.Model):
             IS_ACTIVE=1
         ).first()
 
-    # 🔹 Step 5: Handle breached alarm
         if breached:
             if not active_alarm:
-            # Create new alarm if breached and no active alarm
+                print("🚨 New Alarm Created")
                 DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
                     SENSOR_ID=self.SENSOR_ID,
@@ -150,30 +145,18 @@ class DeviceReadingLog(models.Model):
                     READING=self.READING,
                     ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
                     CENTRE_ID=self.CENTRE_ID,
-                    CRT_DT=now_dt.date(),
-                    LST_UPD_DT=now_dt.date(),
+                    CRT_DT=timezone.now().date(),
+                    LST_UPD_DT=timezone.now().date(),
                     IS_ACTIVE=1
                 )
-                print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
         else:
-        # 🔹 Step 6: Handle normalized alarm
             if active_alarm:
-                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
+                print("✅ Alarm normalized. Sending notifications...")
                 send_normalized_alert(active_alarm)
-
-            # Update all normalized timestamps in DB
+                # Update alarm as inactive
                 active_alarm.IS_ACTIVE = 0
-                active_alarm.LST_UPD_DT = now_dt.date()
-                active_alarm.NORMALIZED_DATE = now_dt.date()
-                active_alarm.NORMALIZED_TIME = now_dt.time().replace(microsecond=0)
-                active_alarm.NORMALIZED_SMS_DATE = now_dt.date()
-                active_alarm.NORMALIZED_SMS_TIME = now_dt.time().replace(microsecond=0)
-                active_alarm.NORMALIZED_EMAIL_DATE = now_dt.date()
-                active_alarm.NORMALIZED_EMAIL_TIME = now_dt.time().replace(microsecond=0)
-            
+                active_alarm.LST_UPD_DT = timezone.now().date()
                 active_alarm.save()
-                print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
-
                 
                     # # Device ka naam fetch kar
                     # device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
@@ -366,7 +349,7 @@ class MasterOrganization(models.Model):
     ORGANIZATION_NAME = models.CharField(max_length=200)
     ORGANIZATION_STATUS = models.IntegerField(default=1)
     ORGANIZATION_STATUS_CD = models.IntegerField(default=1)
-    CENTRE_ID = models.IntegerField()
+    CENTRE_ID = models.IntegerField(null=True, blank=True)
     CRT_DT = models.DateField(null=True, blank=True)
     CRT_BY = models.IntegerField(null=True, blank=True)
     LST_UPD_DT = models.DateField(null=True, blank=True)
@@ -390,8 +373,8 @@ class MasterParameter(models.Model):
     UOM_ID = models.IntegerField(null=True, blank=True)
     PARAMETER_STATUS = models.IntegerField(default=1)
     PARAMETER_STATUS_CD = models.IntegerField(default=1)
-    ORGANIZATION_ID = models.IntegerField()
-    CENTRE_ID = models.IntegerField()
+    ORGANIZATION_ID = models.IntegerField(null=True,blank=True)
+    CENTRE_ID = models.IntegerField(null=True,blank=True)
     CRT_DT = models.DateField(null=True, blank=True)
     CRT_BY = models.IntegerField(null=True, blank=True)
     LST_UPD_DT = models.DateField(null=True, blank=True)
@@ -412,8 +395,8 @@ class MasterSensor(models.Model):
     SENSOR_TYPE = models.CharField(null=True,max_length=100)
     SENSOR_STATUS = models.IntegerField(default=1)
     SENSOR_STATUS_CD = models.IntegerField(default=1)
-    ORGANIZATION_ID = models.IntegerField()
-    CENTRE_ID = models.IntegerField()
+    ORGANIZATION_ID = models.IntegerField(null=True,blank=True)
+    CENTRE_ID = models.IntegerField(null=True,blank=True)
     CRT_DT = models.DateField(null=True, blank=True)
     CRT_BY = models.IntegerField(null=True, blank=True)
     LST_UPD_DT = models.DateField(null=True, blank=True)
@@ -448,8 +431,8 @@ class SeUser(models.Model):
 class SensorParameterLink(models.Model):
     SENSOR_ID = models.IntegerField()
     PARAMETER_ID = models.IntegerField()
-    ORGANIZATION_ID = models.IntegerField()
-    CENTRE_ID = models.IntegerField()
+    ORGANIZATION_ID = models.IntegerField(null=True,blank=True)
+    CENTRE_ID = models.IntegerField(null=True,blank=True)
     CRT_DT = models.DateField(null=True, blank=True)
     CRT_BY = models.IntegerField(null=True, blank=True)
     LST_UPD_DT = models.DateField(null=True, blank=True)
@@ -467,8 +450,8 @@ class SensorParameterLink(models.Model):
 class DeviceSensorLink(models.Model):
     DEVICE_ID = models.IntegerField()
     SENSOR_ID = models.IntegerField()
-    ORGANIZATION_ID = models.IntegerField()
-    CENTRE_ID = models.IntegerField()
+    ORGANIZATION_ID = models.IntegerField(null=True,blank=True)
+    CENTRE_ID = models.IntegerField(null=True,blank=True)
     CRT_DT = models.DateField(null=True, blank=True)
     CRT_BY = models.IntegerField(null=True, blank=True)
     LST_UPD_DT = models.DateField(null=True, blank=True)
@@ -518,7 +501,7 @@ class DeviceAlarmLog(models.Model):
     SENSOR_ID = models.IntegerField()
     PARAMETER_ID = models.IntegerField()
     ALARM_DATE = models.DateField(auto_now_add=True)   # record create hone par date
-    ALARM_TIME = models.TimeField(auto_now_add=True) 
+    ALARM_TIME = models.TimeField(null=True , blank=True) 
     READING = models.FloatField(null=True, blank=True)
     NORMALIZED_DATE = models.DateField(null=True, blank=True)
     NORMALIZED_TIME=models.TimeField(null=True,blank=True)
@@ -531,7 +514,7 @@ class DeviceAlarmLog(models.Model):
     NORMALIZED_EMAIL_DATE = models.DateField(null=True, blank=True)
     NORMALIZED_EMAIL_TIME = models.TimeField(null=True, blank=True)
     ORGANIZATION_ID = models.IntegerField(default=1)
-    CENTRE_ID = models.IntegerField()
+    CENTRE_ID = models.IntegerField(null=True , blank=True)
     CRT_DT = models.DateField(null=True, blank=True)
     CRT_BY = models.IntegerField(null=True, blank=True)
     LST_UPD_DT = models.DateField(null=True, blank=True)
@@ -541,7 +524,15 @@ class DeviceAlarmLog(models.Model):
     CHANNEL_CD = models.IntegerField(null=True, blank=True)
         # 🔥 New field
     IS_ACTIVE = models.IntegerField(default=1)
-
+    DEVICE_STATUS = models.IntegerField(default=1)  # 1=online, 0=offline
+    DEVICE_STATUS_DATE = models.DateField(null=True, auto_now_add=True)
+    DEVICE_STATUS_TIME = models.TimeField(null=True, auto_now_add=True)
+    
+    DEVICE_STATUS_SMS_DATE = models.DateField(null=True, blank=True)
+    DEVICE_STATUS_SMS_TIME = models.TimeField(null=True, blank=True)
+    
+    DEVICE_STATUS_EMAIL_DATE = models.DateField(null=True, blank=True)
+    DEVICE_STATUS_EMAIL_TIME = models.TimeField(null=True, blank=True)
     class Meta:
         unique_together = ('DEVICE_ID','SENSOR_ID','PARAMETER_ID','ALARM_DATE','ALARM_TIME')
         
@@ -670,4 +661,30 @@ class MasterSubscriptionInfo(models.Model):
         verbose_name_plural = 'Master Subscription Infos'
 
     def __str__(self):
-        return self.Package_Name
+        return self.Package_Name    
+    
+class Master_Plan_Type(models.Model):
+    Plan_ID = models.AutoField(primary_key=True)
+    Plan_Name = models.CharField(max_length=500)
+
+    class Meta:
+        db_table = 'Master_Plan_Type'
+
+
+class SubscriptionHistory(models.Model):
+    id = models.AutoField(primary_key=True)
+    Device_ID = models.IntegerField()
+    Subscription_Start_date = models.DateField()
+    Subcription_End_date = models.DateField(null=True, blank=True)
+    Subscription_ID = models.IntegerField(null=True, blank=True)
+    Plan_ID = models.IntegerField(null=True, blank=True)
+    Payment_Date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'Subcription_History'
+        unique_together = ( 'Device_ID', 'Subscription_Start_date')
+        verbose_name = 'Subscription History'
+        verbose_name_plural = 'Subscription Histories'
+
+    def __str__(self):
+        return f"Device {self.Device_ID} | Start {self.Subscription_Start_date}"
