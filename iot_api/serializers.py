@@ -6,7 +6,7 @@ from .models import (
     DeviceReadingLog, MasterDevice, CompassDates,
     MasterOrganization, MasterParameter, MasterSensor,
     SeUser, SensorParameterLink, DeviceSensorLink,
-    DeviceAlarmCallLog, DeviceAlarmLog, MasterUOM,MasterCentre, MasterRole , CentreOrganizationLink, MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory, MasterSubscriptionInfo
+    DeviceAlarmCallLog, DeviceAlarmLog, MasterUOM,MasterCentre, MasterRole , CentreOrganizationLink, MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory, MasterSubscriptionInfo, Master_Plan_Type, SubscriptionHistory,
 )
 
 # -------------------------
@@ -23,7 +23,7 @@ class CompassDatesSerializer(serializers.ModelSerializer):
 class MasterDeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = MasterDevice
-        fields = ['DEVICE_ID','DEVICE_NAME','CATEGORY_ID','ORGANIZATION_ID','CENTRE_ID']
+        fields = ['DEVICE_ID','DEVICE_NAME','CATEGORY_ID','ORGANIZATION_ID','CENTRE_ID',]
 
 # -------------------------
 # DeviceReadingLog
@@ -222,5 +222,17 @@ class DeviceCategorySerializer(serializers.ModelSerializer):
 class MasterSubscriptionInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = MasterSubscriptionInfo
-        fields = ["Subscription_ID","Package_Name",]
+        fields = ["Subscription_ID","Package_Name"]
 
+# -------------------------
+# Plan Type
+# -------------------------
+class Master_PlanTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Master_Plan_Type
+        fields = ["Plan_ID","Plan_Name"]
+
+class Subscription_HistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionHistory
+        fields = ["id","Device_ID","Subscription_Start_date","Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date"]
