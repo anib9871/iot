@@ -48,5 +48,6 @@ urlpatterns = [
     path('user/', views.user_dashboard, name='user'),
     path("api/currentuser/", current_user_api, name="current_user"),
     path("api/userorgcentre/", user_org_centre_api, name="user_org_centre"),
-     path('api/devicecheck/', views.devicecheck, name='devicecheck'),
+    path('api/devicecheck/', views.devicecheck, name='devicecheck'),
+    path('devicecheck/<int:device_id>/', views.devicecheck, name='devicecheck'),
 ]
