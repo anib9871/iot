@@ -242,37 +242,76 @@ def user_org_centre_api(request):
     return Response(serializer.data)
 
 
-from datetime import date
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .models import SubscriptionHistory, MasterDevice  # import models as needed
+# from datetime import date
+# from rest_framework.decorators import api_view
+# from rest_framework.response import Response
+# from .models import SubscriptionHistory, MasterDevice  # import models as needed
 
-from datetime import date
-from rest_framework.decorators import api_view
+# from datetime import date
+# from rest_framework.decorators import api_view
+# from rest_framework.response import Response
+# from .models import SubscriptionHistory, MasterSubscriptionInfo
+
+# @api_view(['GET'])
+# def devicecheck(request):
+#     today = date.today()
+#     results = []
+
+#     subscriptions = SubscriptionHistory.objects.all()
+
+#     for sub in subscriptions:
+#         # ✅ Fetch Plan Type Name
+#         plan = Master_Plan_Type.objects.filter(Plan_ID=sub.Plan_ID).first()
+#         plan_name = plan.Plan_Name if plan else "Unknown Plan"
+
+#         # ✅ Append only required fields
+#         results.append({
+#             "Device_ID": sub.Device_ID,
+#             "Plan_Type": plan_name,
+#             "Subcription_End_Date": sub.Subcription_End_date.strftime("%Y-%m-%d") if sub.Subcription_End_date else None
+#         })
+
+#     return Response({
+#         "date_checked": today.strftime("%Y-%m-%d"),
+#         "devices": results,
+#         "total_count": len(results)
+#     })
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from .models import SubscriptionHistory, MasterSubscriptionInfo
+from django.shortcuts import get_object_or_404
+from .models import MasterDevice, MasterSubscriptionInfo, Master_Plan_Type, SubscriptionHistory
+
 
 @api_view(['GET'])
-def devicecheck(request):
-    today = date.today()
-    results = []
+@permission_classes([AllowAny])
+def devicecheck(request, device_id):
 
-    subscriptions = SubscriptionHistory.objects.all()
+    # ✅ Check if device exists
+    device = get_object_or_404(MasterDevice, DEVICE_ID=device_id)
 
-    for sub in subscriptions:
-        # ✅ Fetch Plan Type Name
-        plan = Master_Plan_Type.objects.filter(Plan_ID=sub.Plan_ID).first()
-        plan_name = plan.Plan_Name if plan else "Unknown Plan"
-
-        # ✅ Append only required fields
-        results.append({
-            "Device_ID": sub.Device_ID,
-            "Plan_Type": plan_name,
-            "Subcription_End_Date": sub.Subcription_End_date.strftime("%Y-%m-%d") if sub.Subcription_End_date else None
+    # ✅ Get latest subscription history entry for this device
+    sub = SubscriptionHistory.objects.filter(Device_ID=device_id).last()
+    if not sub:
+        return Response({
+            "device_id": device_id,
+            "plan_type": None,
+            "valid_till": None
         })
 
+    # ✅ Fetch plan type
+    plan = Master_Plan_Type.objects.filter(Plan_ID=sub.Plan_ID).first()
+    plan_type = plan.Plan_Name if plan else "Unknown"
+
+    # ✅ Fetch package name
+    # package = MasterSubscriptionInfo.objects.filter(Subscription_ID=sub.Subscription_ID).first()
+    # package_name = package.Package_Name if package else "Unknown"
+
+    # ✅ Return final response
     return Response({
-        "date_checked": today.strftime("%Y-%m-%d"),
-        "devices": results,
-        "total_count": len(results)
+        "device_id": device_id,
+        "plan_type": plan_type,
+        "valid_till": sub.Subcription_End_date.strftime("%Y-%m-%d") if sub.Subcription_End_date else None
     })
