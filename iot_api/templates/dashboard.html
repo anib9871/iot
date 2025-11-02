@@ -594,6 +594,15 @@ if (currentData.length) {
     const idVal = row[pk];
     const noActions = (currentTable === "devicealarmlog" || currentTable === "devicereadinglog");
 
+    if (currentTable === "mastersubscriptionhistory") {
+    return `<tr>${rowCells}${noActions ? "" : `
+      <td>
+        <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-success" onclick='renew(${JSON.stringify(idVal)})'>Renew</button>
+      </td>`}
+    </tr>`;  
+    }
+    
     return `<tr>${rowCells}${noActions ? "" : `
       <td>
         <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
@@ -643,14 +652,17 @@ async function openModal(row ={}){
   const fieldsDiv = document.getElementById('modalFields');
   fieldsDiv.innerHTML = "";
 
-  if (currentTable === "devicesensorlink") {
+ if (currentTable === "devicesensorlink") {
   const getDropdown = (name, data, valueKey, labelKey) => {
+    // Sort by valueKey descending (latest first)
+    const sortedData = [...data].sort((a, b) => b[valueKey] - a[valueKey]);
+
     return `
       <div class="mb-3">
         <label class="form-label">${name.toUpperCase()}</label>
         <select class="form-select" name="${name}_ID">
-           <option value="">-- Choose ${name.toLowerCase()} --</option>
-          ${data.map(item => `
+          <option value="">-- Choose ${name.toLowerCase()} --</option>
+          ${sortedData.map(item => `
             <option value="${item[valueKey]}" ${row?.[`${name}_ID`] == item[valueKey] ? 'selected' : ''}>
               ${item[labelKey]}
             </option>
@@ -659,7 +671,7 @@ async function openModal(row ={}){
       </div>
     `;
   };
-  
+
   fieldsDiv.innerHTML = `
     <input type="hidden" name="${PRIMARY_KEYS[currentTable]}" value="${row?.[PRIMARY_KEYS[currentTable]] ?? ''}">
     ${getDropdown('DEVICE', dropdownData.devices, 'DEVICE_ID', 'DEVICE_NAME')}
@@ -668,6 +680,7 @@ async function openModal(row ={}){
 
   return; // stop execution here, generic code won't run
 }
+
 
 if (currentTable === "createuser") {
   const today = new Date();
@@ -1159,6 +1172,140 @@ async function deleteRow(id){
   await loadTable(currentTable);
   updateSummary();
 }
+// Function to show a dynamic Bootstrap popup message
+function showPopupMessage(title, message) {
+  // Remove existing popup if any
+  const existingPopup = document.getElementById('dynamicPopupModal');
+  if (existingPopup) existingPopup.remove();
+
+  const popupHtml = `
+    <div class="modal fade" id="dynamicPopupModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">${title}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>${message}</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', popupHtml);
+  const modalEl = document.getElementById('dynamicPopupModal');
+  const bootstrapModal = new bootstrap.Modal(modalEl);
+  bootstrapModal.show();
+
+  // Remove modal from DOM after hiding
+  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove());
+}
+
+// Updated renew function using popup instead of alert
+async function renew(id) {
+  if (!id) {
+    showPopupMessage("Invalid ID", "Please provide a valid subscription ID.");
+    return;
+  }
+
+  // Find the subscription row from currentData
+  const sub = currentData.find(r => r[PRIMARY_KEYS[currentTable]] == id);
+  if (!sub) {
+    showPopupMessage("Not Found", "Subscription not found!");
+    return;
+  }
+
+  // Convert subscription end date to Date object
+  const endDate = new Date(sub.Subcription_End_date);
+  const today = new Date();
+
+  if (endDate >= today) {
+    showPopupMessage("Active Subscription", "Subscription is still active. Renew only after expiry.");
+    return;
+  }
+
+  // If expired, open renew form/modal
+  openRenewForm(sub);
+}
+
+// Example function to open a modal or form for renewing subscription
+function openRenewForm(subscription) {
+  // Remove existing modal if any
+  const existingModal = document.getElementById('dynamicRenewModal');
+  if (existingModal) existingModal.remove();
+
+  // Create modal HTML dynamically
+  const modalHtml = `
+    <div class="modal fade" id="dynamicRenewModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Renew Subscription</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="dynamicRenewForm">
+              <div class="mb-3">
+                <label class="form-label">Device ID</label>
+                <input type="text" class="form-control" value="${subscription.Device_ID}" readonly>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">New End Date</label>
+                <input type="date" class="form-control" id="dynamicEndDate" value="${subscription.Subcription_End_date}" required>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="dynamicRenewSubmit">Renew</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  // Initialize and show modal
+  const modalEl = document.getElementById('dynamicRenewModal');
+  const bootstrapModal = new bootstrap.Modal(modalEl);
+  bootstrapModal.show();
+
+  // Handle renew button click
+  document.getElementById('dynamicRenewSubmit').onclick = () => {
+    const newEndDate = document.getElementById('dynamicEndDate').value;
+    if (!newEndDate) return alert("Please enter a valid date.");
+
+    fetch(API[currentTable] + subscription[PRIMARY_KEYS[currentTable]] + "/", {
+      method: 'PATCH',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ Subcription_End_date: newEndDate })
+    })
+      .then(res => {
+        if (!res.ok) return res.text().then(txt => { throw new Error(txt); });
+        return res.json();
+      })
+      .then(data => {
+        alert("Subscription renewed successfully!");
+        bootstrapModal.hide();
+        modalEl.remove(); // Clean up modal from DOM
+        loadTable(currentTable); // Refresh table
+      })
+      .catch(err => {
+        console.error("Renew failed:", err);
+        alert("Failed to renew subscription: " + err.message);
+      });
+  };
+
+  // Remove modal from DOM when hidden
+  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove());
+}
+
 
 
 
