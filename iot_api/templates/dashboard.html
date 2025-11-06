@@ -61,6 +61,26 @@ body { background: #f1f3f8; font-family: 'Segoe UI', sans-serif; padding-top: 70
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Sliding toggle style */
+.switch { position: relative; display: inline-block; width: 120px; height: 34px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; background-color: #ccc; transition: 0.4s; border-radius: 34px; top: 0; left: 0; right: 0; bottom: 0; }
+.slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: 0.4s; border-radius: 50%; }
+input:checked + .slider { background-color: #28a745; }
+input:checked + .slider:before { transform: translateX(85px); }
+.status-text { position: absolute; width: 100%; text-align: center; font-weight: bold; color: white; top: 6px; font-size: 12px; }
+.inactive-row { opacity: 0.5; }
+
+/* Add this in your CSS file or <style> tag */
+.expired-row {
+  background-color: #f2f2f2; /* light grey */
+  color: #999; /* dim text */
+}
+.expired-row td {
+  color: #999;
+}
+
 </style>
 </head>
 <body>
@@ -288,7 +308,7 @@ const FIELD_SCHEMAS = {
   devicecategory:["CATEGORY_ID","CATEGORY_NAME"],
   mastersubscriptioninfo:["Subscription_ID","Package_Name",],
   masterplantype:["Plan_ID","Plan_Name"],
-  mastersubscriptionhistory:["id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date"]
+  mastersubscriptionhistory:["id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date","Status"]
 };
 
 // helpers
@@ -347,7 +367,10 @@ function formatTitle(table) {
 }
 
 
-let currentTable="", currentData=[], dropdownData={};
+let currentTable="", currentData=[], dropdownData={};const rowStatus = {};// Current active status map for rows
+const activeStatusMap = {}; // key = row id, value = true/false
+ // tableName_rowId = true/false
+
 
 // ===== preload dropdown datasets =====
 async function loadDropdowns(){
@@ -594,15 +617,50 @@ if (currentData.length) {
     const idVal = row[pk];
     const noActions = (currentTable === "devicealarmlog" || currentTable === "devicereadinglog");
 
-    if (currentTable === "mastersubscriptionhistory") {
-    return `<tr>${rowCells}${noActions ? "" : `
+if (currentTable === "mastersubscriptionhistory") {
+  return `<tr class="${row.Status === 'Expired' ? 'expired-row' : ''}">${rowCells}${noActions ? "" : `
+    <td>
+      <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
+      <button class="btn btn-sm btn-success" onclick='renew(${JSON.stringify(idVal)})'>Renew</button>
+    </td>`}
+  </tr>`;  
+}
+
+if (currentTable === "masterdevices") {
+  return `<tr class="${row.DEVICE_STATUS === 1 ? '' : 'inactive-row'}">
+    ${rowCells}${noActions ? "" : `
       <td>
-        <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
-        <button class="btn btn-sm btn-success" onclick='renew(${JSON.stringify(idVal)})'>Renew</button>
+        <button class="btn btn-sm btn-warning me-2" onclick='editRow(${JSON.stringify(row)})'>
+          <i class="bi bi-pencil"></i>
+        </button>
+        <label class="switch">
+          <input type="checkbox" ${row.DEVICE_STATUS === 1 ? "checked" : ""} 
+            onchange="toggleActiveStatus(${row.DEVICE_ID}, this)">
+          <span class="slider round">
+            <span class="status-text">${row.DEVICE_STATUS === 1 ? "Active" : "Inactive"}</span>
+          </span>
+        </label>
       </td>`}
-    </tr>`;  
-    }
-    
+  </tr>`;
+}
+
+if (currentTable === "mastersensor") {
+  return `<tr class="${row.SENSOR_STATUS === 1 ? '' : 'inactive-row'}">
+    ${rowCells}${noActions ? "" : `
+      <td>
+        <button class="btn btn-sm btn-warning me-2" onclick='editRow(${JSON.stringify(row)})'>
+          <i class="bi bi-pencil"></i>
+        </button>
+        <label class="switch">
+          <input type="checkbox" ${row.SENSOR_STATUS === 1 ? "checked" : ""} 
+            onchange="toggleSensorStatus(${row.SENSOR_ID}, this)">
+          <span class="slider round">
+            <span class="status-text">${row.SENSOR_STATUS === 1 ? "Active" : "Inactive"}</span>
+          </span>
+        </label>
+      </td>`}
+  </tr>`;
+}
     return `<tr>${rowCells}${noActions ? "" : `
       <td>
         <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
@@ -818,6 +876,7 @@ if (currentTable === "createuser") {
   schema.forEach(key => {
       // mastersensor ka SENSOR_STATUS add/edit form me skip
   if (currentTable === "mastersensor" && key === "SENSOR_STATUS") return;
+  if (currentTable === "masterdevices" && key === "DEVICE_STATUS") return;
 
   let fieldHtml = "";
     // PK handling
@@ -1150,6 +1209,49 @@ if(isEdit){
   updateSummary();
 });
 
+function toggleActiveStatus(deviceId, checkbox) {
+  const isActive = checkbox.checked;
+  const tr = checkbox.closest("tr");
+
+  // Update UI
+  tr.classList.toggle("inactive-row", !isActive);
+  checkbox.nextElementSibling.querySelector(".status-text").textContent = isActive ? "Active" : "Inactive";
+
+  // Update backend
+  fetch(`${API.masterdevices}${deviceId}/`, {
+    method: 'PATCH',
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ DEVICE_STATUS: isActive ? 1 : 0 })
+  })
+  .then(res => {
+    if (!res.ok) return res.text().then(txt => { throw new Error(txt); });
+    console.log(`✅ DEVICE_STATUS updated`, { DEVICE_ID: deviceId, DEVICE_STATUS: isActive ? 1 : 0 });
+  })
+  .catch(err => console.error("Failed to update DEVICE_STATUS:", err));
+}
+
+function toggleSensorStatus(sensorId, checkbox) {
+  const isActive = checkbox.checked;
+  const tr = checkbox.closest("tr");
+
+  // Update UI
+  tr.classList.toggle("inactive-row", !isActive);
+  checkbox.nextElementSibling.querySelector(".status-text").textContent = isActive ? "Active" : "Inactive";
+
+  // Update backend
+  fetch(`${API.mastersensor}${sensorId}/`, {
+    method: 'PATCH',
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ SENSOR_STATUS: isActive ? 1 : 0 })
+  })
+  .then(res => {
+    if (!res.ok) return res.text().then(txt => { throw new Error(txt); });
+    console.log(`✅ SENSOR_STATUS updated`, { SENSOR_ID: sensorId, SENSOR_STATUS: isActive ? 1 : 0 });
+  })
+  .catch(err => console.error("Failed to update SENSOR_STATUS:", err));
+}
+
+
 // ===== Delete =====
 async function deleteRow(id){
   if(id==null || id===""){ alert("Invalid ID"); return; }
@@ -1205,8 +1307,7 @@ function showPopupMessage(title, message) {
   // Remove modal from DOM after hiding
   modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove());
 }
-
-// Updated renew function using popup instead of alert
+// Updated renew function using popup instead of alert — new record insert karega
 async function renew(id) {
   if (!id) {
     showPopupMessage("Invalid ID", "Please provide a valid subscription ID.");
@@ -1233,13 +1334,16 @@ async function renew(id) {
   openRenewForm(sub);
 }
 
-// Example function to open a modal or form for renewing subscription
+// Modal form for renewing subscription (creates new entry instead of updating)
 function openRenewForm(subscription) {
+  const device = dropdownData.devices.find(d => d.DEVICE_ID === subscription.Device_ID);
+  const deviceName = device ? device.DEVICE_NAME : `ID: ${subscription.Device_ID}`;
+
   // Remove existing modal if any
   const existingModal = document.getElementById('dynamicRenewModal');
   if (existingModal) existingModal.remove();
 
-  // Create modal HTML dynamically
+  // Create modal dynamically
   const modalHtml = `
     <div class="modal fade" id="dynamicRenewModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
@@ -1251,12 +1355,16 @@ function openRenewForm(subscription) {
           <div class="modal-body">
             <form id="dynamicRenewForm">
               <div class="mb-3">
-                <label class="form-label">Device ID</label>
-                <input type="text" class="form-control" value="${subscription.Device_ID}" readonly>
+                <label class="form-label">Device Name</label>
+                <input type="text" class="form-control" value="${deviceName}" readonly>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">New Start Date</label>
+                <input type="date" class="form-control" id="dynamicStartDate" value="${new Date().toISOString().split('T')[0]}" required>
               </div>
               <div class="mb-3">
                 <label class="form-label">New End Date</label>
-                <input type="date" class="form-control" id="dynamicEndDate" value="${subscription.Subcription_End_date}" required>
+                <input type="date" class="form-control" id="dynamicEndDate" required>
               </div>
             </form>
           </div>
@@ -1271,41 +1379,52 @@ function openRenewForm(subscription) {
 
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-  // Initialize and show modal
   const modalEl = document.getElementById('dynamicRenewModal');
   const bootstrapModal = new bootstrap.Modal(modalEl);
   bootstrapModal.show();
 
-  // Handle renew button click
+  // Handle Renew Submit
   document.getElementById('dynamicRenewSubmit').onclick = () => {
+    const newStartDate = document.getElementById('dynamicStartDate').value;
     const newEndDate = document.getElementById('dynamicEndDate').value;
-    if (!newEndDate) return alert("Please enter a valid date.");
 
-    fetch(API[currentTable] + subscription[PRIMARY_KEYS[currentTable]] + "/", {
-      method: 'PATCH',
+    if (!newStartDate || !newEndDate) {
+      alert("Please fill all date fields.");
+      return;
+    }
+
+    fetch(API[currentTable], {
+      method: 'POST',
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ Subcription_End_date: newEndDate })
+      body: JSON.stringify({
+        Device_ID: subscription.Device_ID,
+        Subscription_Start_date: newStartDate,
+        Subcription_End_date: newEndDate,
+        Subscription_ID: subscription.Subscription_ID,
+        Plan_ID: subscription.Plan_ID,
+        Payment_Date: new Date().toISOString().split('T')[0],
+        Status: "Active"
+      })
     })
       .then(res => {
         if (!res.ok) return res.text().then(txt => { throw new Error(txt); });
         return res.json();
       })
       .then(data => {
-        alert("Subscription renewed successfully!");
+        alert("✅ Subscription renewed successfully!");
         bootstrapModal.hide();
-        modalEl.remove(); // Clean up modal from DOM
-        loadTable(currentTable); // Refresh table
+        modalEl.remove();
+        loadTable(currentTable); // Refresh the table
       })
       .catch(err => {
         console.error("Renew failed:", err);
-        alert("Failed to renew subscription: " + err.message);
+        alert("❌ Failed to renew subscription: " + err.message);
       });
   };
 
-  // Remove modal from DOM when hidden
+  // Clean modal when closed
   modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove());
 }
-
 
 
 
