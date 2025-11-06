@@ -23,7 +23,7 @@ class CompassDatesSerializer(serializers.ModelSerializer):
 class MasterDeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = MasterDevice
-        fields = ['DEVICE_ID','DEVICE_NAME','CATEGORY_ID','ORGANIZATION_ID','CENTRE_ID',]
+        fields = ['DEVICE_ID','DEVICE_NAME','CATEGORY_ID','ORGANIZATION_ID','CENTRE_ID','DEVICE_STATUS']
 
 # -------------------------
 # DeviceReadingLog
