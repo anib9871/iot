@@ -671,7 +671,17 @@ class Master_Plan_Type(models.Model):
         db_table = 'Master_Plan_Type'
 
 
+from datetime import date
+from django.db import models, transaction
+from datetime import date
+from django.db import models, transaction
+
 class SubscriptionHistory(models.Model):
+    STATUS_CHOICES = (
+        ('Active', 'Active'),
+        ('Expired', 'Expired'),
+    )
+
     id = models.AutoField(primary_key=True)
     Device_ID = models.IntegerField()
     Subscription_Start_date = models.DateField()
@@ -679,12 +689,31 @@ class SubscriptionHistory(models.Model):
     Subscription_ID = models.IntegerField(null=True, blank=True)
     Plan_ID = models.IntegerField(null=True, blank=True)
     Payment_Date = models.DateField(null=True, blank=True)
+    Status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
 
     class Meta:
         db_table = 'Subcription_History'
-        unique_together = ( 'Device_ID', 'Subscription_Start_date')
+        unique_together = ('Device_ID', 'Subscription_Start_date')
         verbose_name = 'Subscription History'
         verbose_name_plural = 'Subscription Histories'
 
     def __str__(self):
-        return f"Device {self.Device_ID} | Start {self.Subscription_Start_date}"
+        return f"Device {self.Device_ID} | {self.Status} | Start {self.Subscription_Start_date}"
+
+    def save(self, *args, **kwargs):
+        today = date.today()
+
+        # 🔹 Auto-mark as expired if end date passed
+        if self.Subcription_End_date and self.Subcription_End_date < today:
+            self.Status = 'Expired'
+        else:
+            self.Status = 'Active'
+
+        # 🔹 Expire old active subscriptions of same device (auto handled)
+        with transaction.atomic():
+            SubscriptionHistory.objects.filter(
+                Device_ID=self.Device_ID,
+                Status='Active'
+            ).exclude(pk=self.pk).update(Status='Expired', Subcription_End_date=today)
+
+            super().save(*args, **kwargs)
