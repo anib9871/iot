@@ -235,4 +235,4 @@ class Master_PlanTypeSerializer(serializers.ModelSerializer):
 class Subscription_HistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionHistory
-        fields = ["id","Device_ID","Subscription_Start_date","Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date"]
+        fields = ["id","Device_ID","Subscription_Start_date","Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date","Status"]
