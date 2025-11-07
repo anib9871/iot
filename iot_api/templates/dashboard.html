@@ -103,7 +103,7 @@ input:checked + .slider:before { transform: translateX(85px); }
 <li><a class="dropdown-item" href="#" onclick="loadTable('master devices')">Devices</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master subscriptioninfo')">Master Subscription Info</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master plan type')">Master Plan Type</a></li>
-<li><a class="dropdown-item" href="#" onclick="loadTable('master subscription history')"> Subscription History</a></li>
+<li><a class="dropdown-item" href="#" onclick="loadTable('master subscription history')"> Subscription History / <br> Renew Subscription</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master sensor')">Sensors</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master parameter')">Parameter</a></li>
 <li><a class="dropdown-item" href="#" onclick="loadTable('master uom')">Uom</a></li>
@@ -1315,25 +1315,116 @@ async function renew(id) {
     return;
   }
 
-  // Find the subscription row from currentData
   const sub = currentData.find(r => r[PRIMARY_KEYS[currentTable]] == id);
   if (!sub) {
     showPopupMessage("Not Found", "Subscription not found!");
     return;
   }
 
-  // Convert subscription end date to Date object
-  const endDate = new Date(sub.Subcription_End_date);
-  const today = new Date();
-
-  if (endDate >= today) {
-    showPopupMessage("Active Subscription", "Subscription is still active. Renew only after expiry.");
-    return;
-  }
-
-  // If expired, open renew form/modal
-  openRenewForm(sub);
+  // 🔹 Open schedule form for future subscription
+  openScheduleForm(sub);
 }
+
+
+
+function openScheduleForm(subscription) {
+  const device = dropdownData.devices.find(d => d.DEVICE_ID === subscription.Device_ID);
+  const deviceName = device ? device.DEVICE_NAME : `ID: ${subscription.Device_ID}`;
+
+  const existingModal = document.getElementById('dynamicScheduleModal');
+  if (existingModal) existingModal.remove();
+
+  const modalHtml = `
+    <div class="modal fade" id="dynamicScheduleModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Schedule Subscription</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="dynamicScheduleForm">
+              <div class="mb-3">
+                <label class="form-label">Device Name</label>
+                <input type="text" class="form-control" value="${deviceName}" readonly>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="scheduleStartDate" value="${new Date().toISOString().split('T')[0]}" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" id="scheduleEndDate" required>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="scheduleSubmit">Schedule</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  const modalEl = document.getElementById('dynamicScheduleModal');
+  const bootstrapModal = new bootstrap.Modal(modalEl);
+  bootstrapModal.show();
+
+  document.getElementById('scheduleSubmit').onclick = () => {
+    const startDate = document.getElementById('scheduleStartDate').value;
+    const endDate = document.getElementById('scheduleEndDate').value;
+
+    if (!startDate || !endDate) {
+      alert("Please fill all date fields.");
+      return;
+    }
+
+    if (new Date(endDate) < new Date(startDate)) {
+      alert("End date cannot be earlier than Start date.");
+      return;
+    }
+
+    // 🔹 Ensure new subscription starts after current subscription ends
+    const currentEnd = new Date(subscription.Subcription_End_date);
+    if (new Date(startDate) <= currentEnd) {
+      alert(`New subscription must start after current subscription ends (${subscription.Subcription_End_date}).`);
+      return;
+    }
+
+    fetch(API[currentTable], {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        Device_ID: subscription.Device_ID,
+        Subscription_Start_date: startDate,
+        Subcription_End_date: endDate,
+        Subscription_ID: subscription.Subscription_ID,
+        Plan_ID: subscription.Plan_ID,
+        Payment_Date: new Date().toISOString().split('T')[0],
+        Status: "Future"  // initially future
+      })
+    })
+    .then(res => {
+      if (!res.ok) return res.text().then(txt => { throw new Error(txt); });
+      return res.json();
+    })
+    .then(data => {
+      alert("✅ Subscription scheduled successfully!");
+      bootstrapModal.hide();
+      modalEl.remove();
+      loadTable(currentTable); // Refresh table
+    })
+    .catch(err => {
+      console.error("Schedule failed:", err);
+      alert("❌ Failed to schedule subscription: " + err.message);
+    });
+  };
+
+  modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove());
+}
+
 
 // Modal form for renewing subscription (creates new entry instead of updating)
 function openRenewForm(subscription) {
@@ -1393,6 +1484,11 @@ function openRenewForm(subscription) {
       alert("Please fill all date fields.");
       return;
     }
+
+      if (new Date(newEndDate) < new Date(newStartDate)) {
+    alert("End date cannot be earlier than Start date.");
+    return;
+  }
 
     fetch(API[currentTable], {
       method: 'POST',
