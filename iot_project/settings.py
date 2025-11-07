@@ -92,9 +92,16 @@ WSGI_APPLICATION = 'iot_project.wsgi.application'
 #             }
 #         }
 
+
+# Database configuration for Railway MySQL
 DATABASES = {
-    "default": dj_database_url.config(default=os.getenv("DATABASE_URL"))
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),   # Railway dashboard me set hai
+        conn_max_age=600,                    # 🔹 Keep connection alive for 10 min (avoid idle disconnect)
+        ssl_require=True                     # 🔹 Secure SSL connection (recommended)
+    )
 }
+
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
