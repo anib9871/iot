@@ -877,6 +877,7 @@ if (currentTable === "createuser") {
       // mastersensor ka SENSOR_STATUS add/edit form me skip
   if (currentTable === "mastersensor" && key === "SENSOR_STATUS") return;
   if (currentTable === "masterdevices" && key === "DEVICE_STATUS") return;
+  if (currentTable === "mastersubscriptionhistory" && key === "Status") return;
 
   let fieldHtml = "";
     // PK handling
