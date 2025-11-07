@@ -695,8 +695,9 @@ from django.db import models, transaction
 
 class SubscriptionHistory(models.Model):
     STATUS_CHOICES = (
-        ('Active', 'Active'),
-        ('Expired', 'Expired'),
+        ('Future', 'Future'),   # Scheduled subscription
+        ('Active', 'Active'),   # Currently active
+        ('Expired', 'Expired'), # Already ended
     )
 
     id = models.AutoField(primary_key=True)
@@ -706,7 +707,7 @@ class SubscriptionHistory(models.Model):
     Subscription_ID = models.IntegerField(null=True, blank=True)
     Plan_ID = models.IntegerField(null=True, blank=True)
     Payment_Date = models.DateField(null=True, blank=True)
-    Status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
+    Status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Future')
 
     class Meta:
         db_table = 'Subcription_History'
@@ -720,17 +721,22 @@ class SubscriptionHistory(models.Model):
     def save(self, *args, **kwargs):
         today = date.today()
 
-        # 🔹 Auto-mark as expired if end date passed
+        # 🔹 Set status based on start and end dates
         if self.Subcription_End_date and self.Subcription_End_date < today:
             self.Status = 'Expired'
+        elif self.Subscription_Start_date > today:
+            self.Status = 'Future'
         else:
             self.Status = 'Active'
 
-        # 🔹 Expire old active subscriptions of same device (auto handled)
         with transaction.atomic():
+            # 🔹 Expire only active subscriptions whose end date is passed
             SubscriptionHistory.objects.filter(
                 Device_ID=self.Device_ID,
-                Status='Active'
-            ).exclude(pk=self.pk).update(Status='Expired', Subcription_End_date=today)
+                Status='Active',
+                Subcription_End_date__lt=today
+            ).exclude(pk=self.pk).update(Status='Expired')
 
             super().save(*args, **kwargs)
+
+
