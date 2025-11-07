@@ -105,16 +105,20 @@ class DeviceReadingLog(models.Model):
         db_table = "device_reading_log"
 
     def save(self, *args, **kwargs):
-        if not self.READING_DATE:
-            self.READING_DATE = timezone.now().date()
-        # Ensure READING_TIME is set
-        if not self.READING_TIME:
-            self.READING_TIME = timezone.now().time().replace(microsecond=0)
-        super().save(*args, **kwargs)  # Save reading first
-
-        # ================== Fetch Parameter ==================
         from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
+        from django.utils import timezone
+        now_dt = timezone.now()
 
+    # 🔹 Step 1: Set reading date/time
+        if not self.READING_DATE:
+            self.READING_DATE = now_dt.date()
+        if not self.READING_TIME:
+            self.READING_TIME = now_dt.time().replace(microsecond=0)
+
+    # 🔹 Step 2: Save reading entry
+        super().save(*args, **kwargs)
+
+    # 🔹 Step 3: Fetch parameter
         try:
             param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
         except MasterParameter.DoesNotExist:
@@ -126,8 +130,8 @@ class DeviceReadingLog(models.Model):
             return
 
         breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
-        print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
 
+    # 🔹 Step 4: Check for active alarm
         active_alarm = DeviceAlarmLog.objects.filter(
             DEVICE_ID=self.DEVICE_ID,
             SENSOR_ID=self.SENSOR_ID,
@@ -135,9 +139,10 @@ class DeviceReadingLog(models.Model):
             IS_ACTIVE=1
         ).first()
 
+    # 🔹 Step 5: Handle breached alarm
         if breached:
             if not active_alarm:
-                print("🚨 New Alarm Created")
+            # Create new alarm if breached and no active alarm
                 DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
                     SENSOR_ID=self.SENSOR_ID,
@@ -145,18 +150,30 @@ class DeviceReadingLog(models.Model):
                     READING=self.READING,
                     ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
                     CENTRE_ID=self.CENTRE_ID,
-                    CRT_DT=timezone.now().date(),
-                    LST_UPD_DT=timezone.now().date(),
+                    CRT_DT=now_dt.date(),
+                    LST_UPD_DT=now_dt.date(),
                     IS_ACTIVE=1
                 )
+                print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
         else:
+        # 🔹 Step 6: Handle normalized alarm
             if active_alarm:
-                print("✅ Alarm normalized. Sending notifications...")
+                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
                 send_normalized_alert(active_alarm)
-                # Update alarm as inactive
+
+            # Update all normalized timestamps in DB
                 active_alarm.IS_ACTIVE = 0
-                active_alarm.LST_UPD_DT = timezone.now().date()
+                active_alarm.LST_UPD_DT = now_dt.date()
+                active_alarm.NORMALIZED_DATE = now_dt.date()
+                active_alarm.NORMALIZED_TIME = now_dt.time().replace(microsecond=0)
+                active_alarm.NORMALIZED_SMS_DATE = now_dt.date()
+                active_alarm.NORMALIZED_SMS_TIME = now_dt.time().replace(microsecond=0)
+                active_alarm.NORMALIZED_EMAIL_DATE = now_dt.date()
+                active_alarm.NORMALIZED_EMAIL_TIME = now_dt.time().replace(microsecond=0)
+            
                 active_alarm.save()
+                print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+
                 
                     # # Device ka naam fetch kar
                     # device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
