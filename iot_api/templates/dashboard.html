@@ -302,7 +302,7 @@ const FIELD_SCHEMAS = {
   sensorparameterlink: ["ID","SENSOR_ID","PARAMETER_ID"],
   devicesensorlink: ["ID","DEVICE_ID","SENSOR_ID"],
   compassdates: ["ID","ORGANIZATION_ID","BRANCH_ID","CMPS_DT"],
-  centreorganizationlink: ["ID", "ORGANIZATION_ID","CENTRE_ID"],
+  // centreorganizationlink: ["ID", "ORGANIZATION_ID","CENTRE_ID"],
   userorganizationcentrelink: ["USER_ID","ORGANIZATION_ID","CENTRE_ID"],
   masternotificationtime: ["NOTIFICATION_TIME","ORGANIZATION_ID"],
   devicecategory:["CATEGORY_ID","CATEGORY_NAME"],
@@ -441,13 +441,26 @@ async function loadTable(table) {
       }
     }
 
-    if (currentTable === "devicealarmlog") {
-      if (currentData.length > 0 && currentData[0].ALARM_DATE && currentData[0].ALARM_TIME) {
-        currentData.sort((a, b) => new Date(b.ALARM_DATE + " " + b.ALARM_TIME) - new Date(a.ALARM_DATE + " " + a.ALARM_TIME));
-      } else if (currentData.length > 0 && currentData[0].READING !== undefined) {
-        currentData.sort((a, b) => b.READING - a.READING);
-      }
+if (currentTable === "devicealarmlog") {
+  currentData.sort((a, b) => {
+    const aDateTime = new Date(
+      (a.ALARM_DATE || a.CREATED_DATE || a.DATE || '') + " " + (a.ALARM_TIME || a.CREATED_TIME || '')
+    );
+    const bDateTime = new Date(
+      (b.ALARM_DATE || b.CREATED_DATE || b.DATE || '') + " " + (b.ALARM_TIME || b.CREATED_TIME || '')
+    );
+    
+    // If both valid dates, compare normally
+    if (!isNaN(aDateTime) && !isNaN(bDateTime)) {
+      return bDateTime - aDateTime; // latest first
     }
+
+    // fallback: compare ID or reading if dates invalid
+    if (a.S_NO && b.S_NO) return b.S_NO - a.S_NO;
+    if (a.READING && b.READING) return b.READING - a.READING;
+    return 0;
+  });
+}
 
 
   } catch (err) {
@@ -535,7 +548,7 @@ if (currentData.length) {
       let cellVal = row[h] ?? "";
 
       // PK → S_NO numbering
-      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","mastersubscriptioninfo","masterplantype","mastersubscriptionhistory",].includes(currentTable)) {
+      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicereadinglog","devicealarmlog","mastersubscriptioninfo","masterplantype","mastersubscriptionhistory",].includes(currentTable)) {
         return `<td>${rowIdx + 1}</td>`;
       }
 
