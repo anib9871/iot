@@ -80,7 +80,7 @@ body { margin:0; padding-top:70px; display:flex; }
       <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
     </ul>
   </div>
-</div>
+</div>z
 </nav>
 
 <div class="sidebar">
@@ -507,33 +507,58 @@ const isVOCDevice = allCategories.find(c => c.CATEGORY_ID === currentCategoryId)
 
 // 🔹 Filter alarms
 let alarms = alarmsRaw.filter(a => a.DEVICE_ID === device.DEVICE_ID);
+
 if (isVOCDevice) {
     alarms = alarms.filter(a => {
         const param = masterparameter.find(p => String(p.PARAMETER_ID) === String(a.PARAMETER_ID));
         return param && param.PARAMETER_NAME.toLowerCase().includes("voc");
     });
 }
-alarms = alarms.sort((a, b) => new Date(b.ALARM_DATE + 'T' + b.ALARM_TIME) - new Date(a.ALARM_DATE + 'T' + a.ALARM_TIME));
 
-    const alarmBody = document.getElementById("alarmLog");
-    alarmBody.innerHTML = "";
-    let activeCount = 0;
-    alarms.forEach(a => {
-        const isActive = a.IS_ACTIVE === 1;
-        if (isActive) activeCount++;
-        alarmBody.innerHTML += `
-            <tr>
-                <td>${device.DEVICE_NAME}</td>
-                <td>${a.READING ?? '-'}</td>
-                <td>${a.ALARM_DATE} ${a.ALARM_TIME}</td>
-                <td><span class="badge ${isActive ? 'bg-danger' : 'bg-success'}">
-                    ${isActive ? 'Active' : 'Resolved'}
-                </span></td>
-            </tr>`;
-    });
-    document.getElementById("alarm24h").textContent =
-        alarms.filter(a => now - new Date(a.ALARM_DATE + 'T' + a.ALARM_TIME) <= 24 * 60 * 60 * 1000).length;
-    document.getElementById("activeAlarmCount").textContent = activeCount;
+// Use robust sorting like devicealarmlog
+alarms = alarms.sort((a, b) => {
+    const aDateTime = new Date(
+        (a.ALARM_DATE || a.CREATED_DATE || a.DATE || '') + " " + (a.ALARM_TIME || a.CREATED_TIME || '')
+    );
+    const bDateTime = new Date(
+        (b.ALARM_DATE || b.CREATED_DATE || b.DATE || '') + " " + (b.ALARM_TIME || b.CREATED_TIME || '')
+    );
+
+    if (!isNaN(aDateTime) && !isNaN(bDateTime)) {
+        return bDateTime - aDateTime; // latest first
+    }
+
+    if (a.S_NO && b.S_NO) return b.S_NO - a.S_NO;
+    if (a.READING && b.READING) return b.READING - a.READING;
+
+    return 0;
+});
+
+const alarmBody = document.getElementById("alarmLog");
+alarmBody.innerHTML = "";
+let activeCount = 0;
+
+alarms.forEach(a => {
+    const isActive = a.IS_ACTIVE === 1;
+    if (isActive) activeCount++;
+    alarmBody.innerHTML += `
+        <tr>
+            <td>${device.DEVICE_NAME}</td>
+            <td>${a.READING ?? '-'}</td>
+            <td>${a.ALARM_DATE} ${a.ALARM_TIME}</td>
+            <td><span class="badge ${isActive ? 'bg-danger' : 'bg-success'}">
+                ${isActive ? 'Active' : 'Resolved'}
+            </span></td>
+        </tr>`;
+});
+
+document.getElementById("alarm24h").textContent =
+    alarms.filter(a => {
+        const dt = new Date((a.ALARM_DATE || a.CREATED_DATE || a.DATE || '') + " " + (a.ALARM_TIME || a.CREATED_TIME || ''));
+        return !isNaN(dt) && (now - dt <= 24 * 60 * 60 * 1000);
+    }).length;
+
+document.getElementById("activeAlarmCount").textContent = activeCount;
 
     // 🔁 Auto-refresh graph every 30 minutes (1800000 ms)
 if (window.deviceGraphRefreshInterval) clearInterval(window.deviceGraphRefreshInterval);
