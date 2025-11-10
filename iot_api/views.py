@@ -32,19 +32,21 @@ from django.db import connection
 def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
-        password = request.POST.get("password")  # agar password store kiya hai DB me
+        password = request.POST.get("password")
 
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT USERNAME, ROLE_ID 
+                SELECT USER_ID, USERNAME, ROLE_ID 
                 FROM master_user 
                 WHERE USERNAME=%s AND PASSWORD=%s
             """, [username, password])
             row = cursor.fetchone()
 
         if row:
-            username, role = row
+            user_id, username, role = row
 
+            # ✅ Store all details in session
+            request.session["user_id"] = user_id
             request.session["username"] = username
             request.session["role"] = role
 
@@ -212,7 +214,7 @@ class Subscription_HistoryViewSet(viewsets.ModelViewSet):
 # Extra Simple APIs for JS
 # -------------------------
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def current_user_api(request):
     """Return currently logged in user from session"""
     user_id = request.session.get("user_id")
@@ -230,7 +232,7 @@ def current_user_api(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def user_org_centre_api(request):
     """Return user's Organization and Centre mapping"""
     user_id = request.GET.get("USER_ID")
@@ -315,3 +317,4 @@ def devicecheck(request, device_id):
         "plan_type": plan_type,
         "valid_till": sub.Subcription_End_date.strftime("%Y-%m-%d") if sub.Subcription_End_date else None
     })
+
