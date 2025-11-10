@@ -174,6 +174,60 @@ class DeviceReadingLog(models.Model):
                 active_alarm.save()
                 print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
 
+
+    # def save(self, *args, **kwargs):
+    #     if not self.READING_DATE:
+    #         self.READING_DATE = timezone.now().date()
+    #     # Ensure READING_TIME is set
+    #     if not self.READING_TIME:
+    #         self.READING_TIME = timezone.now().time().replace(microsecond=0)
+    #     super().save(*args, **kwargs)  # Save reading first
+
+    #     # ================== Fetch Parameter ==================
+    #     from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
+
+    #     try:
+    #         param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
+    #     except MasterParameter.DoesNotExist:
+    #         print("❌ Parameter not found")
+    #         return
+
+    #     if self.READING is None:
+    #         print("❌ No reading provided")
+    #         return
+
+    #     breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
+    #     print(f"📡 Device {self.DEVICE_ID} Reading={self.READING}, Breach={breached}, Time={datetime.now()}")
+
+    #     active_alarm = DeviceAlarmLog.objects.filter(
+    #         DEVICE_ID=self.DEVICE_ID,
+    #         SENSOR_ID=self.SENSOR_ID,
+    #         PARAMETER_ID=self.PARAMETER_ID,
+    #         IS_ACTIVE=1
+    #     ).first()
+
+    #     if breached:
+    #         if not active_alarm:
+    #             print("🚨 New Alarm Created")
+    #             DeviceAlarmLog.objects.create(
+    #                 DEVICE_ID=self.DEVICE_ID,
+    #                 SENSOR_ID=self.SENSOR_ID,
+    #                 PARAMETER_ID=self.PARAMETER_ID,
+    #                 READING=self.READING,
+    #                 ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
+    #                 CENTRE_ID=self.CENTRE_ID,
+    #                 CRT_DT=timezone.now().date(),
+    #                 LST_UPD_DT=timezone.now().date(),
+    #                 IS_ACTIVE=1
+    #             )
+    #     else:
+    #         if active_alarm:
+    #             print("✅ Alarm normalized. Sending notifications...")
+    #             send_normalized_alert(active_alarm)
+    #             # Update alarm as inactive
+    #             active_alarm.IS_ACTIVE = 0
+    #             active_alarm.LST_UPD_DT = timezone.now().date()
+    #             active_alarm.save()
                 
                     # # Device ka naam fetch kar
                     # device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
@@ -518,7 +572,7 @@ class DeviceAlarmLog(models.Model):
     SENSOR_ID = models.IntegerField()
     PARAMETER_ID = models.IntegerField()
     ALARM_DATE = models.DateField(auto_now_add=True)   # record create hone par date
-    ALARM_TIME = models.TimeField(null=True , blank=True) 
+    ALARM_TIME = models.TimeField(auto_now_add=True) 
     READING = models.FloatField(null=True, blank=True)
     NORMALIZED_DATE = models.DateField(null=True, blank=True)
     NORMALIZED_TIME=models.TimeField(null=True,blank=True)
@@ -688,7 +742,7 @@ class Master_Plan_Type(models.Model):
         db_table = 'Master_Plan_Type'
 
 
-from datetime import date
+from datetime import date, timedelta
 from django.db import models, transaction
 from datetime import date
 from django.db import models, transaction
@@ -721,7 +775,7 @@ class SubscriptionHistory(models.Model):
     def save(self, *args, **kwargs):
         today = date.today()
 
-        # 🔹 Set status based on start and end dates
+        # 1) Decide status for this instance based on dates
         if self.Subcription_End_date and self.Subcription_End_date < today:
             self.Status = 'Expired'
         elif self.Subscription_Start_date > today:
@@ -730,13 +784,23 @@ class SubscriptionHistory(models.Model):
             self.Status = 'Active'
 
         with transaction.atomic():
-            # 🔹 Expire only active subscriptions whose end date is passed
-            SubscriptionHistory.objects.filter(
-                Device_ID=self.Device_ID,
-                Status='Active',
-                Subcription_End_date__lt=today
-            ).exclude(pk=self.pk).update(Status='Expired')
+            # Only expire/adjust other active subscriptions if this one is starting now (or in past)
+            if self.Status == 'Active':
+            # Find other active subscriptions for same device
+                overlaps = SubscriptionHistory.objects.filter(
+                    Device_ID=self.Device_ID,
+                    Status='Active'
+                ).exclude(pk=self.pk)
+
+                for o in overlaps:
+                    # If other subscription overlaps (its end is None or >= this start)
+                    if (o.Subcription_End_date is None) or (o.Subcription_End_date >= self.Subscription_Start_date):
+                        # Option: truncate the old subscription to day before new start
+                        new_end = self.Subscription_Start_date - timedelta(days=1)
+                        o.Subcription_End_date = new_end
+                        # If truncated end is before today, mark expired, else keep Active until new_end
+                        o.Status = 'Expired' if new_end < today else o.Status
+                        o.save()
+        # If this subscription is Future — do not touch existing Active ones (they should continue)
 
             super().save(*args, **kwargs)
-
-
