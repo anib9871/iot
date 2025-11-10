@@ -8,19 +8,100 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-<style>
-body { margin:0; padding-top:70px; display:flex; }
-.navbar { background: linear-gradient(90deg, #0d6efd, #0a58ca); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-.navbar .nav-link { color:#fff !important; }
-.sidebar { width:260px; background:#f8f9fa; border-right:1px solid #dee2e6; padding:20px; position:fixed; top:70px; bottom:0; display:flex; flex-direction:column; overflow:hidden; }
-.sidebar-content { overflow-y:auto; flex:1; padding-right:5px; }
-.sidebar h5 { font-weight:600; margin-bottom:15px; }
-.sidebar .form-select { margin-bottom:15px; border-radius:8px; }
-.sidebar .summary-card { min-height:60px; padding:2px 4px; margin-bottom:10px; font-size:0.8rem; display:flex; flex-direction:column; justify-content:center; align-items:center; border-radius:12px; color:#fff; }
-.sidebar .summary-card i { font-size:1.4rem; margin-bottom:4px; }
-.sidebar .summary-card h6 { font-size:0.85rem; margin-bottom:2px; }
-.sidebar .summary-card p { font-size:0.9rem; margin:0; font-weight:600; }
-.content { margin-left:260px; padding:20px; flex:1; overflow-x:hidden; }
+<style>body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  min-height: 100vh;
+  background: #f9fafb;
+}
+
+.navbar {
+  background: linear-gradient(90deg, #0d6efd, #0a58ca);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar .nav-link {
+  color: #fff !important;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: #f8f9fa;
+  border-right: 1px solid #dee2e6;
+  position: fixed;
+  top: 70px;
+  bottom: 0;
+  left: 0;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar h5 {
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.sidebar .form-select,
+.sidebar input {
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+/* Summary Cards */
+.sidebar .summary-card {
+  padding: 8px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  color: #fff;
+  text-align: center;
+}
+
+.sidebar .summary-card i {
+  font-size: 1.4rem;
+  margin-bottom: 4px;
+}
+
+.sidebar .summary-card h6 {
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.sidebar .summary-card p {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Content area */
+.content {
+  margin-left: 260px;
+  padding: 90px 25px 25px;
+  flex: 1;
+  overflow-x: hidden;
+  transition: margin-left 0.3s ease;
+}
+
+/* Responsive Fix */
+@media (max-width: 992px) {
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    transition: left 0.3s ease;
+  }
+
+  .sidebar.active {
+    left: 0;
+  }
+
+  .content {
+    margin-left: 0;
+    padding-top: 90px;
+  }
+}
+
 #deviceTypeCards { display:flex; flex-wrap:wrap; gap:15px; justify-content:center; margin-top:50px; }
 .device-type-card { flex:1 1 calc(33.33% - 10px); max-width:calc(33.33% - 10px); height:120px; background:linear-gradient(135deg,#0d6efd,#6610f2); color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; transition:0.3s; }
 .device-type-card:hover { transform:translateY(-5px); box-shadow:0 6px 15px rgba(0,0,0,0.2); }
@@ -80,7 +161,7 @@ body { margin:0; padding-top:70px; display:flex; }
       <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">Logout</a></li>
     </ul>
   </div>
-</div>z
+</div>
 </nav>
 
 <div class="sidebar">
@@ -150,7 +231,8 @@ const API = {
   masterDevices: BASE_URL + "/api/masterdevice/",
   devicereadinglog: BASE_URL + "/api/devicereadinglog/",
   devicealarmlog: BASE_URL + "/api/devicealarmlog/",
-  userorganizationcentrelink: BASE_URL + "/api/userorganizationcentrelink/",
+  // userorganizationcentrelink: BASE_URL + "/api/userorganizationcentrelink/",
+  userorganizationcentrelink: BASE_URL + "/api/userorgcentre/",
   masteruom: BASE_URL + "/api/masteruom/",
   masterparameter: BASE_URL + "/api/masterparameter/",
 };
@@ -182,24 +264,36 @@ async function loadOrganizations(){
   }catch(err){ console.error(err);}
 }
 
-async function loadCentres(orgId, auto=false, userCentreId=null){
+async function loadCentres(orgId, auto = false, userCentreId = null) {
   const centreSelect = document.getElementById("centreSelect");
   centreSelect.innerHTML = '<option value="">Select Centre</option>';
-  if(!orgId) return;
+  if (!orgId) return;
+
   try {
-    if(!centreData.length){
+    if (!centreData.length) {
       const res = await fetch(API.mastercentre);
       centreData = await res.json();
     }
+
+    // ✅ Only filter by organization
     let filtered = centreData.filter(c => c.ORGANIZATION_ID == orgId);
-    if(userCentreId) filtered = filtered.filter(c => c.CENTRE_ID == userCentreId);
-    filtered.forEach(c => { centreSelect.innerHTML += `<option value="${c.CENTRE_ID}">${c.CENTRE_NAME}</option>`; });
-    if(auto && userCentreId) {
+
+    // ✅ Populate all centres under that organization
+    filtered.forEach(c => {
+      centreSelect.innerHTML += `<option value="${c.CENTRE_ID}">${c.CENTRE_NAME}</option>`;
+    });
+
+    // ✅ If auto-select is enabled, select the user's current centre
+    if (auto && userCentreId) {
       centreSelect.value = userCentreId;
       loadDevices(userCentreId);
     }
-  } catch(err) { console.error(err); }
+
+  } catch (err) {
+    console.error(err);
+  }
 }
+
 
 async function loadDevices(centreId){
   currentCentreId=centreId;
@@ -577,6 +671,11 @@ window.deviceGraphRefreshInterval = setInterval(() => {
     updateSummary();
 
 }
+
+document.querySelector('.navbar-toggler').addEventListener('click', () => {
+  document.querySelector('.sidebar').classList.toggle('active');
+});
+
 
 // Event listeners
 document.getElementById("startDateTime").addEventListener("change",()=>{ if(currentCategoryId) updateDashboardLive(currentCategoryId); });
