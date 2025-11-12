@@ -1129,25 +1129,25 @@ else if(k.endsWith("_at") || k.endsWith("_time"))
   });
 
   // ===== Dependent dropdown logic (ONLY if NOT centreorganizationlink) =====
-  if(currentTable !== "centreorganizationlink"){
-    const orgDropdownDep = fieldsDiv.querySelector('select[name="ORG_ID"], select[name="ORGANIZATION_ID"]');
-    const centreDropdownDep = fieldsDiv.querySelector('select[name="CENTRE_ID"]');
-    if(orgDropdownDep && centreDropdownDep){
-      function updateCentres(){
-        const orgId = orgDropdownDep.value;
-        const selectedCentre = centreDropdownDep.getAttribute('data-selected-centre') || "";
-        const filteredCentres = (dropdownData.centres || []).filter(c => c.ORGANIZATION_ID == orgId);
-        centreDropdownDep.innerHTML = '<option value="">-- Choose Centre --</option>' +
-          filteredCentres.map(c=>`<option value="${c.CENTRE_ID}" ${c.CENTRE_ID==selectedCentre?'selected':''}>${c.CENTRE_NAME}</option>`).join('');
-      }
-      if(row["CENTRE_ID"]) centreDropdownDep.setAttribute('data-selected-centre', row["CENTRE_ID"]);
-      orgDropdownDep.addEventListener('change', ()=>{
-        centreDropdownDep.setAttribute('data-selected-centre',''); 
-        updateCentres();
-      });
-      updateCentres(); // initial populate
-    }
-  }
+  // if(currentTable !== "centreorganizationlink"){
+  //   const orgDropdownDep = fieldsDiv.querySelector('select[name="ORG_ID"], select[name="ORGANIZATION_ID"]');
+  //   const centreDropdownDep = fieldsDiv.querySelector('select[name="CENTRE_ID"]');
+  //   if(orgDropdownDep && centreDropdownDep){
+  //     function updateCentres(){
+  //       const orgId = orgDropdownDep.value;
+  //       const selectedCentre = centreDropdownDep.getAttribute('data-selected-centre') || "";
+  //       const filteredCentres = (dropdownData.centres || []).filter(c => c.ORGANIZATION_ID == orgId);
+  //       centreDropdownDep.innerHTML = '<option value="">-- Choose Centre --</option>' +
+  //         filteredCentres.map(c=>`<option value="${c.CENTRE_ID}" ${c.CENTRE_ID==selectedCentre?'selected':''}>${c.CENTRE_NAME}</option>`).join('');
+  //     }
+  //     if(row["CENTRE_ID"]) centreDropdownDep.setAttribute('data-selected-centre', row["CENTRE_ID"]);
+  //     orgDropdownDep.addEventListener('change', ()=>{
+  //       centreDropdownDep.setAttribute('data-selected-centre',''); 
+  //       updateCentres();
+  //     });
+  //     updateCentres(); // initial populate
+  //   }
+  // }
 }
 
 
