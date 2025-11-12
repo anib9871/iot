@@ -28,7 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*","https://16de7fd271a3.ngrok-free.app/"]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://iot-production-c2ae.up.railway.app",   # tumhari current ngrok URL
+    "https://iot-production-f0da.up.railway.app",   # tumhari current ngrok URL
 ]
 
 
