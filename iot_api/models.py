@@ -684,7 +684,6 @@ class MasterUser(models.Model):
     VALIDITY_START = models.DateField(null=True, blank=True)
     VALIDITY_END = models.DateField(null=True, blank=True)
     PASSWORD_RESET = models.BooleanField(default=False)
-
     class Meta:
         db_table = "master_user"
     
@@ -697,6 +696,7 @@ class UserOrganizationCentreLink(models.Model):
     USER_ID = models.ForeignKey("MasterUser", on_delete=models.CASCADE)
     ORGANIZATION_ID = models.ForeignKey("MasterOrganization", on_delete=models.CASCADE)
     CENTRE_ID = models.ForeignKey("MasterCentre", on_delete=models.CASCADE)
+    created_by = models.IntegerField(null=True, blank=True)    
 
     def __str__(self):
         return f"{self.USER.USERNAME} → {self.ORGANIZATION.ORGANIZATION_NAME} → {self.CENTRE.CENTRE_NAME}"
