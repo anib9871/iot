@@ -174,6 +174,7 @@ class MasterUserSerializer(serializers.ModelSerializer):
             'SEND_EMAIL',
             'PASSWORD',
             'VALIDITY_START',
+            'CREATED_BY',
             'VALIDITY_END'
         ]
         extra_kwargs = {
@@ -196,7 +197,7 @@ class MasterUserSerializer(serializers.ModelSerializer):
 class UserOrganizationCentreLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserOrganizationCentreLink
-        fields = ['id','USER_ID','ORGANIZATION_ID','CENTRE_ID']
+        fields = ['id','USER_ID','ORGANIZATION_ID','CENTRE_ID','created_by']
 
 
 # -------------------------
