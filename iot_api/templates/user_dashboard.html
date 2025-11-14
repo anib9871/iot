@@ -161,7 +161,7 @@
       <ul class="navbar-nav">
 
         <!-- User Management Dropdown -->
-        <li class="nav-item dropdown">
+        <li class="nav-item dropdown" id="userManagementNav">
           <a class="nav-link dropdown-toggle" href="#" id="userManagementDropdown" role="button" data-bs-toggle="dropdown">
             User Management
           </a>
@@ -671,19 +671,11 @@ if (res.ok) {
 // ====== ROLE-BASED DISABLE FOR NORMAL USERS ======
 function handleRoleDisable() {
   if (currentUser.ROLE_ID !== 2) {
-    // Disable User Management buttons
-    const userManagementSection = document.getElementById("userManagementSection");
-    const buttons = userManagementSection.querySelectorAll("button, input, select, a");
 
-    buttons.forEach(el => {
-      el.disabled = true;      // disables buttons, inputs, selects
-      el.classList.add("disabled"); // adds Bootstrap disabled look
-      el.style.pointerEvents = "none"; // disables links <a>
-      el.style.opacity = "0.6"; // visual cue
-    });
-    
-    // Optional: add tooltip to explain
-    userManagementSection.title = "Access Restricted: Only Admins can manage users";
+    const navItem = document.getElementById("userManagementNav");
+    if (navItem) {
+      navItem.style.display = "none";  // navbar dropdown hide
+    }
   }
 }
 
