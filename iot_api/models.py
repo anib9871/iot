@@ -240,90 +240,86 @@ class DeviceReadingLog(models.Model):
         db_table = "device_reading_log"
 
     def save(self, *args, **kwargs):
-        from .models import MasterParameter, DeviceAlarmLog
+    from .models import MasterParameter, DeviceAlarmLog
 
-        # 🔹 IST datetime
-        now_dt = timezone.now().astimezone(IST)
-        norm_date = now_dt.date()
-        norm_time = now_dt.time().replace(microsecond=0)
+    # 🔹 IST datetime
+    now_dt = timezone.now().astimezone(IST)
+    norm_date = now_dt.date()
+    norm_time = now_dt.time().replace(microsecond=0)
 
-       # --- Step 1: Reading Date ---
-        if not self.READING_DATE:
-    # Device ne date nahi bheji → fallback to IST date
-            self.READING_DATE = now_dt.date()
-        else:
-    # Device ne date bheji → use device date
-           self.READING_DATE = self.READING_DATE  # (No change)
+    # --- Step 1: Reading Date ---
+    if not self.READING_DATE:
+        self.READING_DATE = now_dt.date()
 
-# --- Step 2: Reading Time ---
-        if not self.READING_TIME:
-    # Device ne time nahi bheja → fallback to IST time with microseconds
-          self.READING_TIME = now_dt.time()
-        else:
-    # Device ne manual / apna time bheja → use it exactly
-    # Bas ensure karo microseconds missing na ho
-          if self.READING_TIME.microsecond == 0:
-           self.READING_TIME = self.READING_TIME.replace(
-            microsecond=now_dt.microsecond)
+    # --- Step 2: Reading Time ---
+    if not self.READING_TIME:
+        self.READING_TIME = now_dt.time()
+    else:
+        if self.READING_TIME.microsecond == 0:
+            self.READING_TIME = self.READING_TIME.replace(
+                microsecond=now_dt.microsecond
+            )
 
+    # 🔹 Save reading record
+    super().save(*args, **kwargs)
 
-        # 🔹 Step 2: Save reading entry
-        super().save(*args, **kwargs)
+    # --- Fetch Parameter ---
+    try:
+        param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
+    except MasterParameter.DoesNotExist:
+        print("❌ Parameter not found")
+        return
 
-        # 🔹 Step 3: Fetch parameter
-        try:
-            param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
-        except MasterParameter.DoesNotExist:
-            print("❌ Parameter not found")
-            return
+    if self.READING is None:
+        print("❌ No reading provided")
+        return
 
-        if self.READING is None:
-            print("❌ No reading provided")
-            return
+    breached = (
+        self.READING > param.UPPER_THRESHOLD or
+        self.READING < param.LOWER_THRESHOLD
+    )
 
-        breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
+    # --- Use device timestamps for alarms ---
+    device_date = self.READING_DATE or norm_date
+    device_time = self.READING_TIME or norm_time
 
-       # --- Device date/time to use for alarms ---
-device_date = self.READING_DATE or norm_date
-device_time = self.READING_TIME or norm_time
+    # 🔹 Check for active alarm
+    active_alarm = DeviceAlarmLog.objects.filter(
+        DEVICE_ID=self.DEVICE_ID,
+        SENSOR_ID=self.SENSOR_ID,
+        PARAMETER_ID=self.PARAMETER_ID,
+        IS_ACTIVE=1
+    ).first()
 
+    print("breached value", breached)
 
-# 🔹 Step 4: Check for active alarm
-active_alarm = DeviceAlarmLog.objects.filter(
-    DEVICE_ID=self.DEVICE_ID,
-    SENSOR_ID=self.SENSOR_ID,
-    PARAMETER_ID=self.PARAMETER_ID,
-    IS_ACTIVE=1
-).first()
+    # ----------------------------------------------------------------------
+    # 🚨 Case 1: READING Breached
+    # ----------------------------------------------------------------------
+    if breached:
+        if not active_alarm:
+            DeviceAlarmLog.objects.create(
+                DEVICE_ID=self.DEVICE_ID,
+                SENSOR_ID=self.SENSOR_ID,
+                PARAMETER_ID=self.PARAMETER_ID,
+                READING=self.READING,
+                ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
+                CENTRE_ID=self.CENTRE_ID,
+                CRT_DT=device_date,
+                LST_UPD_DT=device_date,
+                IS_ACTIVE=1
+            )
+            print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
+        return
 
-print("breached value", breached)
-
-# 🔹 Step 5: Handle breached alarm
-if breached:
-    if not active_alarm:
-        DeviceAlarmLog.objects.create(
-            DEVICE_ID=self.DEVICE_ID,
-            SENSOR_ID=self.SENSOR_ID,
-            PARAMETER_ID=self.PARAMETER_ID,
-            READING=self.READING,
-            ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
-            CENTRE_ID=self.CENTRE_ID,
-
-            # 🔥 Device timestamp here
-            CRT_DT=device_date,
-            LST_UPD_DT=device_date,
-
-            IS_ACTIVE=1
-        )
-        print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
-
-else:
-    # 🔹 Step 6: Handle normalized alarm
+    # ----------------------------------------------------------------------
+    # ✅ Case 2: READING Normalized
+    # ----------------------------------------------------------------------
     if active_alarm:
-        print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
+        print(f"✅ Alarm normalized for device {self.DEVICE_ID}")
+
         send_normalized_alert(active_alarm)
 
-        # 🔥 Set normalized timestamps from device!
         active_alarm.IS_ACTIVE = 0
         active_alarm.LST_UPD_DT = device_date
 
@@ -337,7 +333,8 @@ else:
         active_alarm.NORMALIZED_EMAIL_TIME = device_time
 
         active_alarm.save()
-        print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+        print(f"📧 Normalization updated for device {self.DEVICE_ID}")
+
 
 
 
