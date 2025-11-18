@@ -338,6 +338,7 @@ else:
 
         active_alarm.save()
         print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+        # done
 
 
 
