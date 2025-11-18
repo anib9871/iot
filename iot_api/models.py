@@ -283,48 +283,62 @@ class DeviceReadingLog(models.Model):
 
         breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
 
-        # 🔹 Step 4: Check for active alarm
-        active_alarm = DeviceAlarmLog.objects.filter(
+       # --- Device date/time to use for alarms ---
+device_date = self.READING_DATE or norm_date
+device_time = self.READING_TIME or norm_time
+
+
+# 🔹 Step 4: Check for active alarm
+active_alarm = DeviceAlarmLog.objects.filter(
+    DEVICE_ID=self.DEVICE_ID,
+    SENSOR_ID=self.SENSOR_ID,
+    PARAMETER_ID=self.PARAMETER_ID,
+    IS_ACTIVE=1
+).first()
+
+print("breached value", breached)
+
+# 🔹 Step 5: Handle breached alarm
+if breached:
+    if not active_alarm:
+        DeviceAlarmLog.objects.create(
             DEVICE_ID=self.DEVICE_ID,
             SENSOR_ID=self.SENSOR_ID,
             PARAMETER_ID=self.PARAMETER_ID,
-            IS_ACTIVE=1
-        ).first()
-      
-        print("breached value",breached)
-        # 🔹 Step 5: Handle breached alarm
-        if breached:
-            if not active_alarm:
-                DeviceAlarmLog.objects.create(
-                    DEVICE_ID=self.DEVICE_ID,
-                    SENSOR_ID=self.SENSOR_ID,
-                    PARAMETER_ID=self.PARAMETER_ID,
-                    READING=self.READING,
-                    ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
-                    CENTRE_ID=self.CENTRE_ID,
-                    CRT_DT=norm_date,
-                    LST_UPD_DT=norm_date,
-                    IS_ACTIVE=1
-                )
-                print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
-        else:
-            # 🔹 Step 6: Handle normalized alarm
-            if active_alarm:
-                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
-                send_normalized_alert(active_alarm)
-                # send_email_notification(active_alarm)
+            READING=self.READING,
+            ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
+            CENTRE_ID=self.CENTRE_ID,
 
-                # 🔹 Update all normalized timestamps in IST
-                active_alarm.IS_ACTIVE = 0
-                active_alarm.LST_UPD_DT = norm_date
-                active_alarm.NORMALIZED_DATE = norm_date
-                active_alarm.NORMALIZED_TIME = norm_time
-                active_alarm.NORMALIZED_SMS_DATE = norm_date
-                active_alarm.NORMALIZED_SMS_TIME = norm_time
-                active_alarm.NORMALIZED_EMAIL_DATE = norm_date
-                active_alarm.NORMALIZED_EMAIL_TIME = norm_time
-                active_alarm.save()
-                print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+            # 🔥 Device timestamp here
+            CRT_DT=device_date,
+            LST_UPD_DT=device_date,
+
+            IS_ACTIVE=1
+        )
+        print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
+
+else:
+    # 🔹 Step 6: Handle normalized alarm
+    if active_alarm:
+        print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
+        send_normalized_alert(active_alarm)
+
+        # 🔥 Set normalized timestamps from device!
+        active_alarm.IS_ACTIVE = 0
+        active_alarm.LST_UPD_DT = device_date
+
+        active_alarm.NORMALIZED_DATE = device_date
+        active_alarm.NORMALIZED_TIME = device_time
+
+        active_alarm.NORMALIZED_SMS_DATE = device_date
+        active_alarm.NORMALIZED_SMS_TIME = device_time
+
+        active_alarm.NORMALIZED_EMAIL_DATE = device_date
+        active_alarm.NORMALIZED_EMAIL_TIME = device_time
+
+        active_alarm.save()
+        print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+
 
 
 
