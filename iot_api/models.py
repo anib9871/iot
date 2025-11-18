@@ -1,6 +1,5 @@
 # iot_api/models.py
 from django.db import models
-
 from django.utils import timezone
 from datetime import datetime
 import requests
@@ -181,7 +180,6 @@ def send_email_notification(subject, message, emails):
 
 # ================== Alarm Normalized Alert ==================
 import pytz
-from django.utils import timezone
 
 IST = pytz.timezone("Asia/Kolkata")  # ✅ IST timezone
 
@@ -239,7 +237,7 @@ class DeviceReadingLog(models.Model):
     class Meta:
         db_table = "device_reading_log"
 
-    def save(self, *args, **kwargs):
+def save(self, *args, **kwargs):
     from .models import MasterParameter, DeviceAlarmLog
 
     # 🔹 IST datetime
