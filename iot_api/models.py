@@ -19,6 +19,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'testwebservice71@gmail.com'
 EMAIL_HOST_PASSWORD = 'akuu vulg ejlg ysbt'  # Gmail app password
 
+
 # ================== SMS Function ==================
 def send_sms(phone, message):
     params = {
@@ -50,6 +51,170 @@ def send_email_notification(subject, message, emails):
     except Exception as e:
         print("❌ Email Error:", e)
         return False
+
+import pytz
+from django.utils import timezone
+
+IST = pytz.timezone("Asia/Kolkata")  # ✅ IST timezone
+
+def send_normalized_alert(active_alarm):
+    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser
+
+    device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
+    if not device:
+        print("❌ Device not found")
+        return
+
+    dev_name = device.DEVICE_NAME
+    org_id = device.ORGANIZATION_ID
+    centre_id = device.CENTRE_ID
+
+    user_ids = list(
+        UserOrganizationCentreLink.objects
+        .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
+        .values_list('USER_ID_id', flat=True)
+    )
+
+    if not user_ids:
+        print("❌ No users linked to this org/centre")
+        return
+
+    users = MasterUser.objects.filter(USER_ID__in=user_ids)
+
+    phones = [str(u.PHONE).strip() for u in users if u.SEND_SMS]
+    emails = [u.EMAIL for u in users if u.SEND_EMAIL]
+
+    message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
+
+    for phone in phones:
+        if phone:
+            # send_sms(",".join(phones), message)
+            print("starting to send_sms")
+            send_sms(phone, message)
+            print("send_sms completed") 
+    if emails:
+        send_email_notification("Alarm Normalized", message, emails)
+
+
+# ================== Device Reading Log ==================
+class DeviceReadingLog(models.Model):
+    id = models.AutoField(primary_key=True)
+    DEVICE_ID = models.IntegerField()
+    SENSOR_ID = models.IntegerField()
+    PARAMETER_ID = models.IntegerField()
+    READING_DATE = models.DateField(null=True, blank=True)
+    READING_TIME = models.TimeField(null=True, blank=True)
+    READING = models.FloatField(null=True)
+    ORGANIZATION_ID = models.IntegerField(null=True)
+    CENTRE_ID = models.IntegerField(null=True)
+
+    class Meta:
+        db_table = "device_reading_log"
+
+    def save(self, *args, **kwargs):
+        from .models import MasterParameter, DeviceAlarmLog
+
+        # 🔹 IST datetime
+        now_dt = timezone.now().astimezone(IST)
+        norm_date = now_dt.date()
+        norm_time = now_dt.time().replace(microsecond=0)
+
+        # 🔹 Step 1: Set reading date/time if not provided
+        if not self.READING_DATE:
+            self.READING_DATE = norm_date
+        if not self.READING_TIME:
+            self.READING_TIME = norm_time
+
+        # 🔹 Step 2: Save reading entry
+        super().save(*args, **kwargs)
+
+        # 🔹 Step 3: Fetch parameter
+        try:
+            param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
+        except MasterParameter.DoesNotExist:
+            print("❌ Parameter not found")
+            return
+
+        if self.READING is None:
+            print("❌ No reading provided")
+            return
+
+        breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
+
+        # 🔹 Step 4: Check for active alarm
+        active_alarm = DeviceAlarmLog.objects.filter(
+            DEVICE_ID=self.DEVICE_ID,
+            SENSOR_ID=self.SENSOR_ID,
+            PARAMETER_ID=self.PARAMETER_ID,
+            IS_ACTIVE=1
+        ).first()
+        print("breached value",breached)
+        # 🔹 Step 5: Handle breached alarm
+        if breached:
+            if not active_alarm:
+                DeviceAlarmLog.objects.create(
+                    DEVICE_ID=self.DEVICE_ID,
+                    SENSOR_ID=self.SENSOR_ID,
+                    PARAMETER_ID=self.PARAMETER_ID,
+                    READING=self.READING,
+                    ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
+                    CENTRE_ID=self.CENTRE_ID,
+                    CRT_DT=norm_date,
+                    LST_UPD_DT=norm_date,
+                    IS_ACTIVE=1
+                )
+                print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
+        else:
+            # 🔹 Step 6: Handle normalized alarm
+            if active_alarm:
+                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
+                send_normalized_alert(active_alarm)
+                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending Email notifications...")
+                # send_email_notification(active_alarm)
+
+                # 🔹 Update all normalized timestamps in IST
+                active_alarm.IS_ACTIVE = 0
+                active_alarm.LST_UPD_DT = norm_date
+                active_alarm.NORMALIZED_DATE = norm_date
+                active_alarm.NORMALIZED_TIME = norm_time
+                active_alarm.NORMALIZED_SMS_DATE = norm_date
+                active_alarm.NORMALIZED_SMS_TIME = norm_time
+                active_alarm.NORMALIZED_EMAIL_DATE = norm_date
+                active_alarm.NORMALIZED_EMAIL_TIME = norm_time
+                active_alarm.save()
+                print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+
+# ================== SMS Function ==================
+# def send_sms(phone, message):
+#     params = {
+#         "user_name": SMS_USER,
+#         "user_password": SMS_PASS,
+#         "mobile": phone,
+#         "sender_id": SENDER_ID,
+#         "type": "F",
+#         "text": message
+#     }
+#     try:
+#         resp = requests.get(SMS_API_URL, params=params, timeout=10)
+#         print("🔎 SMS API Response:", resp.text)
+#         if resp.status_code == 200 and ("success" in resp.text.lower() or "sent" in resp.text.lower()):
+#             print(f"✅ SMS sent to {phone}")
+#             return True
+#         else:
+#             print(f"❌ SMS failed for {phone}")
+#     except Exception as e:
+#         print("❌ SMS Error:", e)
+#     return False
+
+# # ================== Email Function ==================
+# def send_email_notification(subject, message, emails):
+#     try:
+#         send_mail(subject, message, "noreply@iot.com", emails)
+#         print(f"📧 Email sent to: {', '.join(emails)}")
+#         return True
+#     except Exception as e:
+#         print("❌ Email Error:", e)
+#         return False
 
 # # ================== Alarm Normalized Alert ==================
 # import pytz
@@ -178,160 +343,160 @@ def send_email_notification(subject, message, emails):
 #                 active_alarm.save()
 #                 print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}") 
 
-# ================== Alarm Normalized Alert ==================
-import pytz
+# # ================== Alarm Normalized Alert ==================
+# import pytz
 
-IST = pytz.timezone("Asia/Kolkata")  # ✅ IST timezone
+# IST = pytz.timezone("Asia/Kolkata")  # ✅ IST timezone
 
-def send_normalized_alert(active_alarm):
-    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser
+# def send_normalized_alert(active_alarm):
+#     from .models import MasterDevice, UserOrganizationCentreLink, MasterUser
 
-    device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
-    if not device:
-        print("❌ Device not found")
-        return
+#     device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
+#     if not device:
+#         print("❌ Device not found")
+#         return
 
-    dev_name = device.DEVICE_NAME
-    org_id = device.ORGANIZATION_ID
-    centre_id = device.CENTRE_ID
+#     dev_name = device.DEVICE_NAME
+#     org_id = device.ORGANIZATION_ID
+#     centre_id = device.CENTRE_ID
 
-    user_ids = list(
-        UserOrganizationCentreLink.objects
-        .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
-        .values_list('USER_ID_id', flat=True)
-    )
+#     user_ids = list(
+#         UserOrganizationCentreLink.objects
+#         .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
+#         .values_list('USER_ID_id', flat=True)
+#     )
 
-    if not user_ids:
-        print("❌ No users linked to this org/centre")
-        return
+#     if not user_ids:
+#         print("❌ No users linked to this org/centre")
+#         return
 
-    users = MasterUser.objects.filter(USER_ID__in=user_ids)
+#     users = MasterUser.objects.filter(USER_ID__in=user_ids)
 
-    phones = [str(u.PHONE).strip() for u in users if u.SEND_SMS]
-    emails = [u.EMAIL for u in users if u.SEND_EMAIL]
+#     phones = [str(u.PHONE).strip() for u in users if u.SEND_SMS]
+#     emails = [u.EMAIL for u in users if u.SEND_EMAIL]
 
-    message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
+#     message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
 
-    for phone in phones:
-        if phone:
-            # send_sms(",".join(phones), message)
-            print("starting to send_sms")
-            send_sms(phone, message)
-            print("send_sms completed") 
-    if emails:
-        send_email_notification("Alarm Normalized", message, emails)
+#     for phone in phones:
+#         if phone:
+#             # send_sms(",".join(phones), message)
+#             print("starting to send_sms")
+#             send_sms(phone, message)
+#             print("send_sms completed") 
+#     if emails:
+#         send_email_notification("Alarm Normalized", message, emails)
 
 
-# ================== Device Reading Log ==================
-class DeviceReadingLog(models.Model):
-    id = models.AutoField(primary_key=True)
-    DEVICE_ID = models.IntegerField()
-    SENSOR_ID = models.IntegerField()
-    PARAMETER_ID = models.IntegerField()
-    READING_DATE = models.DateField(null=True, blank=True)
-    READING_TIME = models.TimeField(null=True, blank=True)
-    READING = models.FloatField(null=True)
-    ORGANIZATION_ID = models.IntegerField(null=True)
-    CENTRE_ID = models.IntegerField(null=True)
+# # ================== Device Reading Log ==================
+# class DeviceReadingLog(models.Model):
+#     id = models.AutoField(primary_key=True)
+#     DEVICE_ID = models.IntegerField()
+#     SENSOR_ID = models.IntegerField()
+#     PARAMETER_ID = models.IntegerField()
+#     READING_DATE = models.DateField(null=True, blank=True)
+#     READING_TIME = models.TimeField(null=True, blank=True)
+#     READING = models.FloatField(null=True)
+#     ORGANIZATION_ID = models.IntegerField(null=True)
+#     CENTRE_ID = models.IntegerField(null=True)
 
-    class Meta:
-        db_table = "device_reading_log"
+#     class Meta:
+#         db_table = "device_reading_log"
 
-def save(self, *args, **kwargs):
-    from .models import MasterParameter, DeviceAlarmLog
+# def save(self, *args, **kwargs):
+#     from .models import MasterParameter, DeviceAlarmLog
 
-    # 🔹 IST datetime
-    now_dt = timezone.now().astimezone(IST)
-    norm_date = now_dt.date()
-    norm_time = now_dt.time().replace(microsecond=0)
+#     # 🔹 IST datetime
+#     now_dt = timezone.now().astimezone(IST)
+#     norm_date = now_dt.date()
+#     norm_time = now_dt.time().replace(microsecond=0)
 
-    # --- Step 1: Reading Date ---
-    if not self.READING_DATE:
-        self.READING_DATE = now_dt.date()
+#     # --- Step 1: Reading Date ---
+#     if not self.READING_DATE:
+#         self.READING_DATE = now_dt.date()
 
-    # --- Step 2: Reading Time ---
-    if not self.READING_TIME:
-        self.READING_TIME = now_dt.time()
-    else:
-        if self.READING_TIME.microsecond == 0:
-            self.READING_TIME = self.READING_TIME.replace(
-                microsecond=now_dt.microsecond
-            )
+#     # --- Step 2: Reading Time ---
+#     if not self.READING_TIME:
+#         self.READING_TIME = now_dt.time()
+#     else:
+#         if self.READING_TIME.microsecond == 0:
+#             self.READING_TIME = self.READING_TIME.replace(
+#                 microsecond=now_dt.microsecond
+#             )
 
-    # 🔹 Save reading record
-    super().save(*args, **kwargs)
+#     # 🔹 Save reading record
+#     super().save(*args, **kwargs)
 
-    # --- Fetch Parameter ---
-    try:
-        param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
-    except MasterParameter.DoesNotExist:
-        print("❌ Parameter not found")
-        return
+#     # --- Fetch Parameter ---
+#     try:
+#         param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
+#     except MasterParameter.DoesNotExist:
+#         print("❌ Parameter not found")
+#         return
 
-    if self.READING is None:
-        print("❌ No reading provided")
-        return
+#     if self.READING is None:
+#         print("❌ No reading provided")
+#         return
 
-    breached = (
-        self.READING > param.UPPER_THRESHOLD or
-        self.READING < param.LOWER_THRESHOLD
-    )
+#     breached = (
+#         self.READING > param.UPPER_THRESHOLD or
+#         self.READING < param.LOWER_THRESHOLD
+#     )
 
-    # --- Use device timestamps for alarms ---
-    device_date = self.READING_DATE or norm_date
-    device_time = self.READING_TIME or norm_time
+#     # --- Use device timestamps for alarms ---
+#     device_date = self.READING_DATE or norm_date
+#     device_time = self.READING_TIME or norm_time
 
-    # 🔹 Check for active alarm
-    active_alarm = DeviceAlarmLog.objects.filter(
-        DEVICE_ID=self.DEVICE_ID,
-        SENSOR_ID=self.SENSOR_ID,
-        PARAMETER_ID=self.PARAMETER_ID,
-        IS_ACTIVE=1
-    ).first()
+#     # 🔹 Check for active alarm
+#     active_alarm = DeviceAlarmLog.objects.filter(
+#         DEVICE_ID=self.DEVICE_ID,
+#         SENSOR_ID=self.SENSOR_ID,
+#         PARAMETER_ID=self.PARAMETER_ID,
+#         IS_ACTIVE=1
+#     ).first()
 
-    print("breached value", breached)
+#     print("breached value", breached)
 
-    # ----------------------------------------------------------------------
-    # 🚨 Case 1: READING Breached
-    # ----------------------------------------------------------------------
-    if breached:
-        if not active_alarm:
-            DeviceAlarmLog.objects.create(
-                DEVICE_ID=self.DEVICE_ID,
-                SENSOR_ID=self.SENSOR_ID,
-                PARAMETER_ID=self.PARAMETER_ID,
-                READING=self.READING,
-                ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
-                CENTRE_ID=self.CENTRE_ID,
-                CRT_DT=device_date,
-                LST_UPD_DT=device_date,
-                IS_ACTIVE=1
-            )
-            print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
-        return
+#     # ----------------------------------------------------------------------
+#     # 🚨 Case 1: READING Breached
+#     # ----------------------------------------------------------------------
+#     if breached:
+#         if not active_alarm:
+#             DeviceAlarmLog.objects.create(
+#                 DEVICE_ID=self.DEVICE_ID,
+#                 SENSOR_ID=self.SENSOR_ID,
+#                 PARAMETER_ID=self.PARAMETER_ID,
+#                 READING=self.READING,
+#                 ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
+#                 CENTRE_ID=self.CENTRE_ID,
+#                 CRT_DT=device_date,
+#                 LST_UPD_DT=device_date,
+#                 IS_ACTIVE=1
+#             )
+#             print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
+#         return
 
-    # ----------------------------------------------------------------------
-    # ✅ Case 2: READING Normalized
-    # ----------------------------------------------------------------------
-    if active_alarm:
-        print(f"✅ Alarm normalized for device {self.DEVICE_ID}")
+#     # ----------------------------------------------------------------------
+#     # ✅ Case 2: READING Normalized
+#     # ----------------------------------------------------------------------
+#     if active_alarm:
+#         print(f"✅ Alarm normalized for device {self.DEVICE_ID}")
 
-        send_normalized_alert(active_alarm)
+#         send_normalized_alert(active_alarm)
 
-        active_alarm.IS_ACTIVE = 0
-        active_alarm.LST_UPD_DT = device_date
+#         active_alarm.IS_ACTIVE = 0
+#         active_alarm.LST_UPD_DT = device_date
 
-        active_alarm.NORMALIZED_DATE = device_date
-        active_alarm.NORMALIZED_TIME = device_time
+#         active_alarm.NORMALIZED_DATE = device_date
+#         active_alarm.NORMALIZED_TIME = device_time
 
-        active_alarm.NORMALIZED_SMS_DATE = device_date
-        active_alarm.NORMALIZED_SMS_TIME = device_time
+#         active_alarm.NORMALIZED_SMS_DATE = device_date
+#         active_alarm.NORMALIZED_SMS_TIME = device_time
 
-        active_alarm.NORMALIZED_EMAIL_DATE = device_date
-        active_alarm.NORMALIZED_EMAIL_TIME = device_time
+#         active_alarm.NORMALIZED_EMAIL_DATE = device_date
+#         active_alarm.NORMALIZED_EMAIL_TIME = device_time
 
-        active_alarm.save()
-        print(f"📧 Normalization updated for device {self.DEVICE_ID}")
+#         active_alarm.save()
+#         print(f"📧 Normalization updated for device {self.DEVICE_ID}")
 
 
 
