@@ -19,7 +19,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'testwebservice71@gmail.com'
 EMAIL_HOST_PASSWORD = 'akuu vulg ejlg ysbt'  # Gmail app password
 
-
 # ================== SMS Function ==================
 def send_sms(phone, message):
     params = {
@@ -51,6 +50,59 @@ def send_email_notification(subject, message, emails):
     except Exception as e:
         print("❌ Email Error:", e)
         return False
+
+# ================== Alarm Normalized Alert ==================
+def send_normalized_alert(active_alarm):
+    from .models import MasterDevice, UserOrganizationCentreLink, MasterUser  # Import here to avoid circular imports
+
+    device = MasterDevice.objects.filter(DEVICE_ID=active_alarm.DEVICE_ID).first()
+    if not device:
+        print("❌ Device not found")
+        return
+
+    dev_name = device.DEVICE_NAME
+    org_id = device.ORGANIZATION_ID
+    centre_id = device.CENTRE_ID
+
+    user_ids = list(
+        UserOrganizationCentreLink.objects
+        .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
+        .values_list('USER_ID_id', flat=True)
+    )
+
+    if not user_ids:
+        print("❌ No users linked to this org/centre")
+        return
+
+    users = MasterUser.objects.filter(USER_ID__in=user_ids)
+
+    phones = [u.PHONE for u in users if u.SEND_SMS]
+    emails = [u.EMAIL for u in users if u.SEND_EMAIL]
+
+    message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
+
+    for phone in phones:
+        send_sms(phone, message)
+
+    if emails:
+        send_email_notification("Alarm Normalized", message, emails)
+
+
+# ================== Device Reading Log ==================
+class DeviceReadingLog(models.Model):
+    id = models.AutoField(primary_key=True)
+    DEVICE_ID = models.IntegerField()
+    SENSOR_ID = models.IntegerField()
+    PARAMETER_ID = models.IntegerField()
+    READING_DATE = models.DateField(auto_now_add=True)
+    READING_TIME = models.TimeField(auto_now_add=True)
+    READING = models.FloatField(null=True)
+    ORGANIZATION_ID = models.IntegerField(null=True)
+    CENTRE_ID = models.IntegerField(null=True)
+
+    class Meta:
+        db_table = "device_reading_log"
+
     def save(self, *args, **kwargs):
         from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
         from django.utils import timezone
