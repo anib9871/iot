@@ -19,7 +19,7 @@ from .serializers import (
     MasterDeviceSerializer, DeviceReadingLogSerializer, DeviceAlarmLogSerializer,
     MasterOrganizationSerializer, MasterParameterSerializer, MasterSensorSerializer,
     CompassDatesSerializer, SeUserSerializer, SensorParameterLinkSerializer,
-    DeviceSensorLinkSerializer, DeviceAlarmCallLogSerializer , MasterUOMSerializer , MasterCentreSerializer , MasterRoleSerializer , CentreOrganizationLinkSerializer,MasterUserSerializer,UserOrganizationCentreLinkSerializer,MasterNotificationTimeSerializer , DeviceCategorySerializer , MasterSubscriptionInfoSerializer , Master_PlanTypeSerializer,Subscription_HistorySerializer,DeviceStatusAlarmLog
+    DeviceSensorLinkSerializer, DeviceAlarmCallLogSerializer , MasterUOMSerializer , MasterCentreSerializer , MasterRoleSerializer , CentreOrganizationLinkSerializer,MasterUserSerializer,UserOrganizationCentreLinkSerializer,MasterNotificationTimeSerializer , DeviceCategorySerializer , MasterSubscriptionInfoSerializer , Master_PlanTypeSerializer,Subscription_HistorySerializer,DeviceStatusAlarmLogSerializer
 )
 
 from django.contrib import messages
@@ -103,7 +103,7 @@ def dashboard_view(request):
         'master_subcriptioninfo': MasterSubscriptionInfo.objects.count(),
         'plan_type': Master_Plan_Type.objects.count(),
         'subscription_history': SubscriptionHistory.objects.count(),
-
+        'devicestatusalarmlog' : DeviceStatusAlarmLog.objects.count(),
 
     }
     return render(request, 'dashboard.html', context)
@@ -212,7 +212,7 @@ class Subscription_HistoryViewSet(viewsets.ModelViewSet):
 
 class DeviceStatusAlarmLogViewSet(viewsets.ModelViewSet):
     queryset = DeviceStatusAlarmLog.objects.all()
-    serializer_class = DeviceStatusAlarmLog
+    serializer_class = DeviceStatusAlarmLogSerializer
 
 # -------------------------
 # Extra Simple APIs for JS
