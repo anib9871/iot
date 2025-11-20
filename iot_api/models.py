@@ -1248,3 +1248,29 @@ class SubscriptionHistory(models.Model):
                 o.save()
 
         super().save(*args, **kwargs)
+class DeviceStatusAlarmLog(models.Model):
+    DEVICE_STATUS_ALARM_ID = models.AutoField(primary_key=True)
+    DEVICE_ID = models.IntegerField()
+
+    # Scrap / active device flag
+    # 1 = device exists / active, 0 = device scrap
+    DEVICE_STATUS = models.IntegerField(default=1)
+
+    # Alarm for online/offline
+    # 1 = offline alarm active, 0 = normalized (device online now)
+    IS_ACTIVE = models.IntegerField(default=1)
+
+    CREATED_ON_DATE = models.DateField(auto_now_add=True)
+    CREATED_ON_TIME = models.TimeField(auto_now_add=True)
+
+    UPDATED_ON_DATE = models.DateField(null=True, blank=True)
+    UPDATED_ON_TIME = models.TimeField(null=True, blank=True)
+
+    SMS_DATE = models.DateField(null=True, blank=True)
+    SMS_TIME = models.TimeField(null=True, blank=True)
+
+    EMAIL_DATE = models.DateField(null=True, blank=True)
+    EMAIL_TIME = models.TimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "device_status_alarm_log"
