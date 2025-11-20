@@ -10,7 +10,7 @@ from .models import (
     MasterParameter,
     MasterSensor,
     SeUser,
-    SensorParameterLink, MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory , MasterSubscriptionInfo , Master_Plan_Type , SubscriptionHistory
+    SensorParameterLink, MasterRole , CentreOrganizationLink , MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory , MasterSubscriptionInfo , Master_Plan_Type , SubscriptionHistory,DeviceStatusAlarmLog
 )
 from django import forms
 # from .models import MasterUser
@@ -190,3 +190,17 @@ class SubscriptionHistoryAdmin(admin.ModelAdmin):
     search_fields = ("id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date")
     list_filter = ("id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date")
 
+@admin.register(DeviceStatusAlarmLog)
+class DeviceStatusAlarmLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "DEVICE_STATUS_ALARM_ID",
+        "DEVICE_ID",
+        "DEVICE_STATUS",
+        "IS_ACTIVE",
+        "CREATED_ON_DATE",
+        "CREATED_ON_TIME",
+        "UPDATED_ON_DATE",
+        "UPDATED_ON_TIME",
+    )
+    list_filter = ("IS_ACTIVE", "DEVICE_STATUS")
+    search_fields = ("DEVICE_ID",)
