@@ -10,8 +10,7 @@ from .views import (
     DeviceReadingLogViewSet, MasterDeviceViewSet, CompassDatesViewSet,
     MasterOrganizationViewSet, MasterParameterViewSet, MasterSensorViewSet,
     SeUserViewSet, SensorParameterLinkViewSet, DeviceSensorLinkViewSet,
-    DeviceAlarmCallLogViewSet, DeviceAlarmLogViewSet, MasterUOMViewSet , MasterCentreViewSet, MasterRoleViewSet ,CentreOrganizationLinkViewSet, MasterUserViewSet , UserOrganizationCentreLinkViewSet, MasterNotificationTimeViewSet , DeviceCategoryViewSet , MasterSubscriptionInfoViewSet, MasterPlanTypeViewSet, Subscription_HistoryViewSet
-)
+    DeviceAlarmCallLogViewSet, DeviceAlarmLogViewSet, MasterUOMViewSet , MasterCentreViewSet, MasterRoleViewSet ,CentreOrganizationLinkViewSet, MasterUserViewSet , UserOrganizationCentreLinkViewSet, MasterNotificationTimeViewSet , DeviceCategoryViewSet , MasterSubscriptionInfoViewSet, MasterPlanTypeViewSet, Subscription_HistoryViewSet,DeviceStatusALarmLogViewSet)
 
 # Router setup
 router = routers.DefaultRouter()
@@ -37,6 +36,7 @@ router.register(r'devicecategory' , DeviceCategoryViewSet)
 router.register(r'mastersubscriptioninfo', MasterSubscriptionInfoViewSet)
 router.register(r'masterplantype', MasterPlanTypeViewSet)
 router.register(r'subscriptionhistory', Subscription_HistoryViewSet)
+router.register(r'devicestatusalarmlog', DeviceStatusALarmLogViewSet)
 
 
 urlpatterns = [
@@ -50,4 +50,5 @@ urlpatterns = [
     path("api/userorgcentre/", user_org_centre_api, name="user_org_centre"),
     path('api/devicecheck/', views.devicecheck, name='devicecheck'),
     path('devicecheck/<int:device_id>/', views.devicecheck, name='devicecheck'),
+    
 ]
