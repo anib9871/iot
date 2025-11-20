@@ -6,7 +6,7 @@ from .models import (
     DeviceReadingLog, MasterDevice, CompassDates,
     MasterOrganization, MasterParameter, MasterSensor,
     SeUser, SensorParameterLink, DeviceSensorLink,
-    DeviceAlarmCallLog, DeviceAlarmLog, MasterUOM,MasterCentre, MasterRole , CentreOrganizationLink, MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory, MasterSubscriptionInfo, Master_Plan_Type, SubscriptionHistory,
+    DeviceAlarmCallLog, DeviceAlarmLog, MasterUOM,MasterCentre, MasterRole , CentreOrganizationLink, MasterUser, UserOrganizationCentreLink,MasterNotificationTime,DeviceCategory, MasterSubscriptionInfo, Master_Plan_Type, SubscriptionHistory,DeviceStatusAlarmLog
 )
 
 # -------------------------
@@ -178,7 +178,7 @@ class MasterUserSerializer(serializers.ModelSerializer):
             'VALIDITY_END'
         ]
         extra_kwargs = {
-            "PASSWORD": {"write_only": True},  # Don't return password in API
+            "PASSWORD": {"write_only": False},  # Don't return password in API
         }
 
     def validate_PASSWORD(self, value):
@@ -237,3 +237,9 @@ class Subscription_HistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionHistory
         fields = ["id","Device_ID","Subscription_Start_date","Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date","Status"]
+
+
+class DeviceStatusAlarmLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceStatusAlarmLog
+        fields = "__all__"
