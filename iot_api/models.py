@@ -855,7 +855,7 @@ class MasterDevice(models.Model):
     LST_UPD_DT = models.DateField(null=True, blank=True) 
     LST_UPD_BY = models.IntegerField(null=True, blank=True) 
     
-    class Meta: db_table = 'master_device'
+    class Meta: db_table = 'iot_api_masterdevice'
 
 from django.db import models
 
