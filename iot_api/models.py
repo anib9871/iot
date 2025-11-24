@@ -4,7 +4,10 @@ from django.utils import timezone
 from datetime import datetime
 import requests
 from django.core.mail import send_mail
+from django.utils import timezone
 from datetime import timedelta
+
+IST = timezone.now() + timedelta(hours=5, minutes=30)
 
 
 # ================== SMS Config ==================
@@ -158,25 +161,22 @@ class DeviceReadingLog(models.Model):
                 print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
         else:
         # 🔹 Step 6: Handle normalized alarm
-         if active_alarm:
-    # Already normalized message sent? Do NOT send again
-          if not active_alarm.NORMALIZED_ALERT_SENT:
-           print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
-           send_normalized_alert(active_alarm)
-        
-        # Mark alert as sent
-           active_alarm.NORMALIZED_ALERT_SENT = True
-          else:
-           print("ℹ Normalized alert already sent earlier — skipping notification")
+            if active_alarm:
+                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
+                send_normalized_alert(active_alarm)
 
-    # Update timestamps
-        ist_now = timezone.now() + timedelta(hours=5, minutes=30)
-        active_alarm.IS_ACTIVE = 0
-        active_alarm.LST_UPD_DT = ist_now.date()
-        active_alarm.NORMALIZED_DATE = ist_now.date()
-        active_alarm.NORMALIZED_TIME = ist_now.time().replace(microsecond=0)
-        active_alarm.save()
-        print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
+            # Update all normalized timestamps in DB
+                active_alarm.IS_ACTIVE = 0
+                active_alarm.LST_UPD_DT = now_dt.date()
+                active_alarm.NORMALIZED_DATE = now_dt.date()
+                active_alarm.NORMALIZED_TIME = now_dt.time().replace(microsecond=0)
+                active_alarm.NORMALIZED_SMS_DATE = now_dt.date()
+                active_alarm.NORMALIZED_SMS_TIME = now_dt.time().replace(microsecond=0)
+                active_alarm.NORMALIZED_EMAIL_DATE = now_dt.date()
+                active_alarm.NORMALIZED_EMAIL_TIME = now_dt.time().replace(microsecond=0)
+            
+                active_alarm.save()
+                print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
 
 
 # # ================== Alarm Normalized Alert ==================
