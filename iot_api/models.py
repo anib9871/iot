@@ -161,7 +161,7 @@ class DeviceReadingLog(models.Model):
          now_dt = timezone.now().astimezone(IST)
 
 # 🔹 Step 6: Handle normalized alarm
-        if active_alarm:
+        if active_alarm is not None:
             print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
             send_normalized_alert(active_alarm)
 
