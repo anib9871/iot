@@ -158,7 +158,12 @@ class DeviceReadingLog(models.Model):
                     CENTRE_ID=self.CENTRE_ID,
                     CRT_DT=norm_date,
                     LST_UPD_DT=norm_date,
+                    SMS_DATE=norm_date,
+                    SMS_TIME=norm_time,
+                    EMAIL_DATE=norm_date,
+                    EMAIL_TIME=norm_time,
                     IS_ACTIVE=1
+                    
                 )
                 print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
         else:
