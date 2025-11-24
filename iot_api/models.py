@@ -4,7 +4,6 @@ from django.utils import timezone
 from datetime import datetime
 import requests
 from django.core.mail import send_mail
-import pytz
 
 # ================== SMS Config ==================
 SMS_API_URL = "http://www.universalsmsadvertising.com/universalsmsapi.php"
@@ -89,14 +88,13 @@ def send_normalized_alert(active_alarm):
         send_email_notification("Alarm Normalized", message, emails)
 
 
-# ================== Device Reading Log ==================
 class DeviceReadingLog(models.Model):
     id = models.AutoField(primary_key=True)
     DEVICE_ID = models.IntegerField()
     SENSOR_ID = models.IntegerField()
     PARAMETER_ID = models.IntegerField()
-    READING_DATE = models.DateField(auto_now_add=True)
-    READING_TIME = models.TimeField(auto_now_add=True)
+    READING_DATE = models.DateField(null=True, blank=True)
+    READING_TIME = models.TimeField(null=True, blank=True)
     READING = models.FloatField(null=True)
     ORGANIZATION_ID = models.IntegerField(null=True)
     CENTRE_ID = models.IntegerField(null=True)
@@ -105,20 +103,23 @@ class DeviceReadingLog(models.Model):
         db_table = "device_reading_log"
 
     def save(self, *args, **kwargs):
-        from .models import MasterParameter, DeviceAlarmLog  # Avoid circular imports
-        from django.utils import timezone
-        now_dt = timezone.now()
+        from .models import MasterParameter, DeviceAlarmLog
 
-    # 🔹 Step 1: Set reading date/time
+        # 🔹 IST datetime
+        now_dt = timezone.now().astimezone(IST)
+        norm_date = now_dt.date()
+        norm_time = now_dt.time().replace(microsecond=0)
+
+        # 🔹 Step 1: Set reading date/time if not provided
         if not self.READING_DATE:
-            self.READING_DATE = now_dt.date()
+            self.READING_DATE = norm_date
         if not self.READING_TIME:
-            self.READING_TIME = now_dt.time().replace(microsecond=0)
+            self.READING_TIME = norm_time
 
-    # 🔹 Step 2: Save reading entry
+        # 🔹 Step 2: Save reading entry
         super().save(*args, **kwargs)
 
-    # 🔹 Step 3: Fetch parameter
+        # 🔹 Step 3: Fetch parameter
         try:
             param = MasterParameter.objects.get(pk=self.PARAMETER_ID)
         except MasterParameter.DoesNotExist:
@@ -131,18 +132,17 @@ class DeviceReadingLog(models.Model):
 
         breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
 
-    # 🔹 Step 4: Check for active alarm
+        # 🔹 Step 4: Check for active alarm
         active_alarm = DeviceAlarmLog.objects.filter(
             DEVICE_ID=self.DEVICE_ID,
             SENSOR_ID=self.SENSOR_ID,
             PARAMETER_ID=self.PARAMETER_ID,
             IS_ACTIVE=1
         ).first()
-
-    # 🔹 Step 5: Handle breached alarm
+        print("breached value",breached)
+        # 🔹 Step 5: Handle breached alarm
         if breached:
             if not active_alarm:
-            # Create new alarm if breached and no active alarm
                 DeviceAlarmLog.objects.create(
                     DEVICE_ID=self.DEVICE_ID,
                     SENSOR_ID=self.SENSOR_ID,
@@ -150,33 +150,30 @@ class DeviceReadingLog(models.Model):
                     READING=self.READING,
                     ORGANIZATION_ID=self.ORGANIZATION_ID or 1,
                     CENTRE_ID=self.CENTRE_ID,
-                    CRT_DT=now_dt.date(),
-                    LST_UPD_DT=now_dt.date(),
+                    CRT_DT=norm_date,
+                    LST_UPD_DT=norm_date,
                     IS_ACTIVE=1
                 )
                 print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
         else:
-# Set IST timezone
-         IST = pytz.timezone('Asia/Kolkata')
-         now_dt = timezone.now().astimezone(IST)
+            # 🔹 Step 6: Handle normalized alarm
+            if active_alarm:
+                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
+                send_normalized_alert(active_alarm)
+                print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending Email notifications...")
+                # send_email_notification(active_alarm)
 
-# 🔹 Step 6: Handle normalized alarm
-        if active_alarm is not None:
-            print(f"✅ Alarm normalized for device {self.DEVICE_ID}, sending notifications...")
-            send_normalized_alert(active_alarm)
-
-        # Update normalized timestamps in IST
-        active_alarm.IS_ACTIVE = 0
-        active_alarm.LST_UPD_DT = now_dt.date()
-        active_alarm.NORMALIZED_DATE = now_dt.date()
-        active_alarm.NORMALIZED_TIME = now_dt.time().replace(microsecond=0)
-        active_alarm.NORMALIZED_SMS_DATE = now_dt.date()
-        active_alarm.NORMALIZED_SMS_TIME = now_dt.time().replace(microsecond=0)
-        active_alarm.NORMALIZED_EMAIL_DATE = now_dt.date()
-        active_alarm.NORMALIZED_EMAIL_TIME = now_dt.time().replace(microsecond=0)
-
-        active_alarm.save()
-        print(f"📧 Normalization timestamps updated (IST) for device {self.DEVICE_ID}")
+                # 🔹 Update all normalized timestamps in IST
+                active_alarm.IS_ACTIVE = 0
+                active_alarm.LST_UPD_DT = norm_date
+                active_alarm.NORMALIZED_DATE = norm_date
+                active_alarm.NORMALIZED_TIME = norm_time
+                active_alarm.NORMALIZED_SMS_DATE = norm_date
+                active_alarm.NORMALIZED_SMS_TIME = norm_time
+                active_alarm.NORMALIZED_EMAIL_DATE = norm_date
+                active_alarm.NORMALIZED_EMAIL_TIME = norm_time
+                active_alarm.save()
+                print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
 
 
 # # ================== Alarm Normalized Alert ==================
