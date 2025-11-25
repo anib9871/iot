@@ -4,6 +4,12 @@ from django.utils import timezone
 from datetime import datetime
 import requests
 from django.core.mail import send_mail
+import os
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
+
+device_name =""
+dev_reading =""
 
 # ================== SMS Config ==================
 SMS_API_URL = "http://www.universalsmsadvertising.com/universalsmsapi.php"
@@ -11,13 +17,13 @@ SMS_USER = "8960853914"
 SMS_PASS = "8960853914"
 SENDER_ID = "FRTLLP"
 
-# ================== EMAIL CONFIG ==================
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'testwebservice71@gmail.com'
-EMAIL_HOST_PASSWORD = 'akuu vulg ejlg ysbt'  # Gmail app password
+# # ================== EMAIL CONFIG ==================
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'testwebservice71@gmail.com'
+# EMAIL_HOST_PASSWORD = 'akuu vulg ejlg ysbt'  # Gmail app password
 
 # ================== SMS Function ==================
 def send_sms(phone, message):
@@ -42,15 +48,33 @@ def send_sms(phone, message):
     return False
 
 # ================== Email Function ==================
-def send_email_notification(subject, message, emails):
+def send_email_brevo(to_email, subject, html_content):
+    print("📧 Sending Email via Brevo...")
+
+    BREVO_API_KEY = os.getenv("BREVO_API_KEY")   # <--- NO HARD CODE
+    if not BREVO_API_KEY:
+        print("❌ ERROR: BREVO_API_KEY not found in environment variables!")
+        return
     try:
-        send_mail(subject, message, "noreply@iot.com", emails)
-        print(f"📧 Email sent to: {', '.join(emails)}")
-        return True
-    except Exception as e:
-        print("❌ Email Error:", e)
-        return False
-    
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = BREVO_API_KEY
+
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+            sib_api_v3_sdk.ApiClient(configuration)
+        )
+
+        email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[{"email": to_email}],
+            sender={"email": "fertisenseiot@gmail.com", "name": "Fertisense"},
+            subject=subject,
+            html_content=html_content
+        )
+
+        response = api_instance.send_transac_email(email)
+        print("✔ Email sent:", response)
+
+    except ApiException as e:
+        print("❌ Email failed:", e)    
 import pytz
 from django.utils import timezone
 
@@ -90,7 +114,7 @@ def send_normalized_alert(active_alarm):
         send_sms(phone, message)
 
     if emails:
-        send_email_notification("Alarm Normalized", message, emails)
+        send_email_brevo("Alarm Normalized", message, emails)
 
 
 # ================== Device Reading Log ==================
