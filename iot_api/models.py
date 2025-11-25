@@ -8,7 +8,7 @@ import os
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
-device_name =""
+# device_name =""
 dev_reading =""
 upth =""
 lowth=""
@@ -122,7 +122,7 @@ def send_normalized_alert(active_alarm):
     
     html_content = f"""
         <h2>Device Reading Normalized</h2>
-        <p><strong>Device:</strong> {device_name}</p>
+        <p><strong>Device:</strong> {dev_name}</p>
         <p>The device's readings have now returned to a normal acceptable range.</p>
         <p>Regards,<br>Fertisense IoT Monitoring System</p>
     """
