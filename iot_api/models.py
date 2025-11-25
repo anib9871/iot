@@ -158,46 +158,14 @@ class DeviceReadingLog(models.Model):
                     CENTRE_ID=self.CENTRE_ID,
                     CRT_DT=norm_date,
                     LST_UPD_DT=norm_date,
-                    SMS_DATE=norm_date,
-                    SMS_TIME=norm_time,
-                    EMAIL_DATE=norm_date,
-                    EMAIL_TIME=norm_time,
+                    SMS_DATE=None,
+                    SMS_TIME=None,
+                    EMAIL_DATE=None,
+                    EMAIL_TIME=None,
                     IS_ACTIVE=1
                     
                 )
                 print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
-
-                 # 🔥🔥🔥 SEND ALERT SMS + EMAIL (THIS WAS MISSING)
-        from .models import MasterDevice, UserOrganizationCentreLink, MasterUser
-
-        device = MasterDevice.objects.filter(DEVICE_ID=new_alarm.DEVICE_ID).first()
-        if device:
-            org_id = device.ORGANIZATION_ID
-            centre_id = device.CENTRE_ID
-
-            user_ids = list(
-                UserOrganizationCentreLink.objects
-                .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
-                .values_list('USER_ID_id', flat=True)
-            )
-
-            users = MasterUser.objects.filter(USER_ID__in=user_ids)
-
-            phones = [u.PHONE for u in users if u.SEND_SMS]
-            emails = [u.EMAIL for u in users if u.SEND_EMAIL]
-
-            alert_msg = (
-                f"ALERT!! Abnormal Temperature Detected for {device.DEVICE_NAME}. "
-                f"Value: {self.READING}. Immediate attention required - Regards Fertisense LLP"
-            )
-
-            # SEND SMS
-            for ph in phones:
-                send_sms(ph, alert_msg)
-
-            # SEND EMAIL
-            if emails:
-                send_email_notification("High/Low Temperature Alert", alert_msg, emails)
         else:
             # 🔹 Step 6: Handle normalized alarm
             if active_alarm:
