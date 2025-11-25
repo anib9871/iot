@@ -10,6 +10,9 @@ from sib_api_v3_sdk.rest import ApiException
 
 device_name =""
 dev_reading =""
+upth =""
+lowth=""
+currentreading = ""
 
 # ================== SMS Config ==================
 SMS_API_URL = "http://www.universalsmsadvertising.com/universalsmsapi.php"
@@ -75,6 +78,7 @@ def send_email_brevo(to_email, subject, html_content):
 
     except ApiException as e:
         print("❌ Email failed:", e)    
+
 import pytz
 from django.utils import timezone
 
@@ -114,7 +118,18 @@ def send_normalized_alert(active_alarm):
         send_sms(phone, message)
 
     if emails:
-        send_email_brevo("Alarm Normalized", message, emails)
+        subject = f"Device {device_name}'s reading is now in acceptable range"
+    
+    html_content = f"""
+        <h2>Device Reading Normalized</h2>
+        <p><strong>Device:</strong> {device_name}</p>
+        <p>The device's readings have now returned to a normal acceptable range.</p>
+        <p>Regards,<br>Fertisense IoT Monitoring System</p>
+    """
+
+    for em in emails:
+        send_email_brevo(em, subject, html_content)
+
 
 
 # ================== Device Reading Log ==================
@@ -159,9 +174,10 @@ class DeviceReadingLog(models.Model):
         if self.READING is None:
             print("❌ No reading provided")
             return
+        
 
         breached = (self.READING > param.UPPER_THRESHOLD or self.READING < param.LOWER_THRESHOLD)
-
+        
         # 🔹 Step 4: Check for active alarm
         active_alarm = DeviceAlarmLog.objects.filter(
             DEVICE_ID=self.DEVICE_ID,
@@ -209,7 +225,7 @@ class DeviceReadingLog(models.Model):
                 active_alarm.NORMALIZED_EMAIL_TIME = norm_time
                 active_alarm.save()
                 print(f"📧 Normalization timestamps updated for device {self.DEVICE_ID}")
-
+                
 
 # # ================== Alarm Normalized Alert ==================
 # import pytz
