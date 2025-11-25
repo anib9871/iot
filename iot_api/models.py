@@ -166,6 +166,38 @@ class DeviceReadingLog(models.Model):
                     
                 )
                 print(f"🚨 New Alarm created for device {self.DEVICE_ID}")
+
+                 # 🔥🔥🔥 SEND ALERT SMS + EMAIL (THIS WAS MISSING)
+        from .models import MasterDevice, UserOrganizationCentreLink, MasterUser
+
+        device = MasterDevice.objects.filter(DEVICE_ID=new_alarm.DEVICE_ID).first()
+        if device:
+            org_id = device.ORGANIZATION_ID
+            centre_id = device.CENTRE_ID
+
+            user_ids = list(
+                UserOrganizationCentreLink.objects
+                .filter(ORGANIZATION_ID_id=org_id, CENTRE_ID_id=centre_id)
+                .values_list('USER_ID_id', flat=True)
+            )
+
+            users = MasterUser.objects.filter(USER_ID__in=user_ids)
+
+            phones = [u.PHONE for u in users if u.SEND_SMS]
+            emails = [u.EMAIL for u in users if u.SEND_EMAIL]
+
+            alert_msg = (
+                f"ALERT!! Abnormal Temperature Detected for {device.DEVICE_NAME}. "
+                f"Value: {self.READING}. Immediate attention required - Regards Fertisense LLP"
+            )
+
+            # SEND SMS
+            for ph in phones:
+                send_sms(ph, alert_msg)
+
+            # SEND EMAIL
+            if emails:
+                send_email_notification("High/Low Temperature Alert", alert_msg, emails)
         else:
             # 🔹 Step 6: Handle normalized alarm
             if active_alarm:
@@ -1063,6 +1095,7 @@ class SubscriptionHistory(models.Model):
 
     def __str__(self):
         return f"Device {self.Device_ID} | {self.Status} | Start {self.Subscription_Start_date}"
+    def save(self, *args, **kwargs): today = date.today() # 1️⃣ Decide status based on dates if self.Subcription_End_date and self.Subcription_End_date < today: self.Status = 'Expired' elif self.Subscription_Start_date > today: self.Status = 'Future' else: self.Status = 'Active' with transaction.atomic(): # 2️⃣ Adjust other subscriptions for same device overlaps = SubscriptionHistory.objects.filter(Device_ID=self.Device_ID).exclude(pk=self.pk) for o in overlaps: o_today_status = None # Expire if end date passed if o.Subcription_End_date and o.Subcription_End_date < today: o.Status = 'Expired' # Future → Active if start date reached elif o.Subscription_Start_date <= today and (not o.Subcription_End_date or o.Subcription_End_date >= today): o.Status = 'Active' # Otherwise future elif o.Subscription_Start_date > today: o.Status = 'Future' o.save() super().save(*args, **kwargs)
 
 def save(self, *args, **kwargs):
     today = date.today()
