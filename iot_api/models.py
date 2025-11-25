@@ -118,7 +118,7 @@ def send_normalized_alert(active_alarm):
         send_sms(phone, message)
 
     if emails:
-        subject = f"Device {device_name}'s reading is now in acceptable range"
+        subject = f"Device {dev_name}'s reading is now in acceptable range"
     
     html_content = f"""
         <h2>Device Reading Normalized</h2>
