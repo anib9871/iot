@@ -1010,7 +1010,7 @@ class MasterUser(models.Model):
     PHONE= models.CharField(null=True,max_length=100)
     SEND_SMS = models.IntegerField(null=True)
     EMAIL = models.EmailField(null=True)
-    SEND_EMAIL =models.IntegerField(null=True)
+    SEND_EMAIL =models.IntegerField(null=True,max_length=500)
     CREATED_BY = models.IntegerField(null=True, blank=True)  # Reference to another USER_ID if needed
     CREATED_ON = models.DateTimeField(auto_now_add=True)     # Auto timestamp
     VALIDITY_START = models.DateField(null=True, blank=True)
