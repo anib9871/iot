@@ -7,6 +7,8 @@ from django.core.mail import send_mail
 import os
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+import pytz
+from django.utils import timezone
 
 # device_name =""
 dev_reading =""
@@ -79,8 +81,6 @@ def send_email_brevo(to_email, subject, html_content):
     except ApiException as e:
         print("❌ Email failed:", e)    
 
-import pytz
-from django.utils import timezone
 
 IST = pytz.timezone("Asia/Kolkata")  # ✅ IST timezone
 
@@ -114,12 +114,28 @@ def send_normalized_alert(active_alarm):
 
     message = f"INFO!! The temperature levels are back to normal for {dev_name}. No action is required - Regards Fertisense LLP"
 
-    for phone in phones:
+    # for phone in phones:
+    #     send_sms(phone, message)
+
+    # ---- Normalize, split, strip, deduplicate ----
+    unique_phones = set()
+
+    for p in phones:
+        if p:  # ignore None or empty values
+            for num in p.split(","):
+                num = num.strip()
+                if num:
+                    unique_phones.add(num)
+
+    print("Unique phone numbers:", unique_phones)
+
+    # ---- Send SMS to each unique phone number ----
+    for phone in unique_phones:
         send_sms(phone, message)
 
     if emails:
         subject = f"Device {dev_name}'s reading is now in acceptable range"
-    
+
     html_content = f"""
         <h2>Device Reading Normalized</h2>
         <p><strong>Device:</strong> {dev_name}</p>
@@ -1009,8 +1025,8 @@ class MasterUser(models.Model):
     ROLE_ID = models.IntegerField(null=True)
     PHONE= models.CharField(null=True,max_length=100)
     SEND_SMS = models.IntegerField(null=True)
-    EMAIL = models.EmailField(null=True)
-    SEND_EMAIL =models.IntegerField(null=True,max_length=500)
+    EMAIL = models.EmailField(null=True,max_length=500)
+    SEND_EMAIL =models.IntegerField(null=True)
     CREATED_BY = models.IntegerField(null=True, blank=True)  # Reference to another USER_ID if needed
     CREATED_ON = models.DateTimeField(auto_now_add=True)     # Auto timestamp
     VALIDITY_START = models.DateField(null=True, blank=True)
