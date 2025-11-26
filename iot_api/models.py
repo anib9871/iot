@@ -1009,7 +1009,7 @@ class MasterUser(models.Model):
     ROLE_ID = models.IntegerField(null=True)
     PHONE= models.CharField(null=True,max_length=100)
     SEND_SMS = models.IntegerField(null=True)
-    EMAIL = models.EmailField(unique=True)
+    EMAIL = models.EmailField()
     SEND_EMAIL =models.IntegerField(null=True)
     CREATED_BY = models.IntegerField(null=True, blank=True)  # Reference to another USER_ID if needed
     CREATED_ON = models.DateTimeField(auto_now_add=True)     # Auto timestamp
