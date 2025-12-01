@@ -31,7 +31,7 @@ body { background: #f1f3f8; font-family: 'Segoe UI', sans-serif; padding-top: 70
 
 /* Table */
 .table-container { 
-  margin-top: 25px; 
+  margin-top: 18px; 
   background: #fff; 
   padding: 20px; 
   border-radius: 16px; 
@@ -80,6 +80,105 @@ input:checked + .slider:before { transform: translateX(85px); }
 .expired-row td {
   color: #999;
 }
+
+/* Override Bootstrap background colors with your custom HEX values */
+.bg-primary {
+    background-color: #4A90E2 !important;   /* Devices */
+}
+
+.bg-success {
+    background-color: #2ECC71 !important;   /* Parameters */
+}
+
+.bg-warning {
+    background-color: #F5A623 !important;   /* Sensors */
+}
+
+.bg-danger {
+    background-color: #FF5E62 !important;   /* Organizations */
+}
+
+#tableSection {
+    display: none;
+}
+#tableSection {
+  display: none;
+}
+/* Popup List Styling */
+.popup-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 1rem;
+}
+
+.popup-item:last-child {
+    border-bottom: none;
+}
+
+.popup-icon {
+    font-size: 1.3rem;
+    margin-right: 10px;
+    color: #4A90E2; /* blue icon color */
+}
+
+.popup-text {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Make popup scrollable if content large */
+.modal-body {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 20px !important;
+}
+
+/* Bigger, cleaner popup size */
+#summaryPopup .modal-dialog {
+    max-width: 700px !important;   /* Adjust width here */
+}
+
+#summaryPopup .modal-content {
+    border-radius: 16px;
+    padding: 0;
+}
+
+/* Heading style */
+.popup-heading {
+    font-size: 22px;
+    font-weight: 700;
+    padding: 20px 25px 10px;
+}
+
+/* Divider line */
+.popup-divider {
+    height: 1px;
+    background: #e5e5e5;
+    margin: 0 25px 10px;
+}
+
+/* Item list styling */
+.popup-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 25px;
+    font-size: 16px;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.popup-icon {
+    font-size: 22px;
+    color: #4a90e2;
+    margin-right: 12px;
+}
+
+.popup-text {
+    font-weight: 500;
+}
+
+
 
 </style>
 </head>
@@ -149,17 +248,61 @@ input:checked + .slider:before { transform: translateX(85px); }
 
 <!-- Summary Cards -->
 <div class="container fade-in">
-<div class="row text-white g-4">
-<div class="col-md-3"><div class="summary-card bg-primary d-flex justify-content-between align-items-center"><div><h5>Total Devices</h5><h3 id="totalDevices">0</h3></div><i class="bi bi-hdd-network"></i></div></div>
-<div class="col-md-3"><div class="summary-card bg-success d-flex justify-content-between align-items-center"><div><h5>Total Parameters</h5><h3 id="totalParameters">0</h3></div><i class="bi bi-sliders"></i></div></div>
-<div class="col-md-3"><div class="summary-card bg-warning d-flex justify-content-between align-items-center"><div><h5>Total Sensors</h5><h3 id="totalSensors">0</h3></div><i class="bi bi-thermometer-half"></i></div></div>
-<div class="col-md-3"><div class="summary-card bg-danger d-flex justify-content-between align-items-center"><div><h5>Total Organizations</h5><h3 id="totalOrganizations">0</h3></div><i class="bi bi-building"></i></div></div>
+  <div class="row text-white g-4">
+
+    <div class="col-md-3">
+      <div onclick="openSummaryPopup('organizations')" 
+           class="summary-card bg-danger d-flex justify-content-between align-items-center">
+        <div>
+          <h5>Total Organizations</h5>
+          <h3 id="totalOrganizations">0</h3>
+        </div>
+        <i class="bi bi-building"></i>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div onclick="openSummaryPopup('devices')" 
+           class="summary-card bg-primary d-flex justify-content-between align-items-center">
+        <div>
+          <h5>Total Devices</h5>
+          <h3 id="totalDevices">0</h3>
+        </div>
+        <i class="bi bi-hdd-network"></i>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div onclick="openSummaryPopup('online')" 
+           class="summary-card bg-success d-flex justify-content-between align-items-center">
+        <div>
+          <h5>Total Online Devices</h5>
+          <h3 id="totalOnlineDevices">0</h3>
+        </div>
+        <i class="bi bi-sliders"></i>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div onclick="openSummaryPopup('offline')" 
+           class="summary-card bg-warning d-flex justify-content-between align-items-center">
+        <div>
+          <h5>Total Offline Devices</h5>
+          <h3 id="totalOfflineDevices">0</h3>
+        </div>
+        <i class="bi bi-thermometer-half"></i>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 
 
 
+
 <!-- Table -->
+ <div class="container fade-in mb-4">
 <div id="tableSection" class="table-container fade-in">
 <h3 id="tableTitle">Select a master/log from the navbar</h3>
 <button id="addBtn" class="btn btn-sm btn-primary mb-2" onclick="addRow()"><i class="bi bi-plus"></i> Add</button>
@@ -190,8 +333,8 @@ input:checked + .slider:before { transform: translateX(85px); }
 // const BASE_URL = `${window.location.protocol}//${window.location.hostname}:8080/api/`; // ✅ Dynamic Base URL
 // const BASE_URL = "http://192.168.1.6:8000/api/"; // direct IP
 // const BASE_URL = "http://192.168.0.100:8000"; // direct IP
-const BASE_URL = "https://iot-production-c2ae.up.railway.app"; // direct IP
-// const BASE_URL = "https://iot-production-95a1.up.railway.app";
+ const BASE_URL = "https://iot-production-c2ae.up.railway.app" // direct IP
+//const BASE_URL = "http://192.168.0.155:8000"; // direct IP
 // const BASE_URL = "   https://16de7fd271a3.ngrok-free.app"; // direct IP
 // const BASE_URL = "https://1vs2c96b-8000.inc1.devtunnels.ms"; // direct IP
 
@@ -217,7 +360,8 @@ const API = {
   masternotificationtime: BASE_URL + "/api/masternotificationtime/",
   mastersubscriptioninfo: BASE_URL +"/api/mastersubscriptioninfo/",
   masterplantype: BASE_URL +"/api/masterplantype/",
-  mastersubscriptionhistory: BASE_URL +"/api/subscriptionhistory/"
+  mastersubscriptionhistory: BASE_URL +"/api/subscriptionhistory/",
+  devicestatusalarmlog: "/api/devicestatusalarmlog/"
 
   //   masterorganizations: "http://127.0.0.1:8000/api/masterorganization/",
   // mastercentre:        "http://127.0.0.1:8000/api/mastercentre/",
@@ -238,6 +382,7 @@ const API = {
   // userorganizationcentrelink: "http://127.0.0.1:8000/api/userorganizationcentrelink/",
   // masternotificationtime: "http://127.0.0.1:8000/api/masternotificationtime/",
   // devicecategory: "http://127.0.0.1:8000/api/devicecategory/"
+
 };
 
 // ===== Custom header labels =====
@@ -306,7 +451,7 @@ const FIELD_SCHEMAS = {
   // centreorganizationlink: ["ID", "ORGANIZATION_ID","CENTRE_ID"],
   userorganizationcentrelink: ["USER_ID","ORGANIZATION_ID","CENTRE_ID"],
   masternotificationtime: ["NOTIFICATION_TIME","ORGANIZATION_ID"],
-  devicecategory:["CATEGORY_ID","CATEGORY_NAME"],
+  devicescategory:["CATEGORY_ID","CATEGORY_NAME"],
   mastersubscriptioninfo:["Subscription_ID","Package_Name",],
   masterplantype:["Plan_ID","Plan_Name"],
   mastersubscriptionhistory:["id","Device_ID","Subscription_Start_date"	,"Subcription_End_date"	,"Subscription_ID","Plan_ID","Payment_Date","Status"]
@@ -371,6 +516,307 @@ function formatTitle(table) {
 let currentTable="", currentData=[], dropdownData={};const rowStatus = {};// Current active status map for rows
 const activeStatusMap = {}; // key = row id, value = true/false
  // tableName_rowId = true/false
+// -------------------------------------------------------------
+// 🔥 UNIVERSAL NAME RESOLVER — converts IDs → Names everywhere
+// -------------------------------------------------------------
+function resolveName(field, value) {
+  if (!value) return "";
+
+  switch (field) {
+
+    case "ORGANIZATION_ID":
+      return dropdownData.orgs?.find(o => o.ORGANIZATION_ID == value)?.ORGANIZATION_NAME || value;
+
+    case "CENTRE_ID":
+      return dropdownData.centres?.find(c => c.CENTRE_ID == value)?.CENTRE_NAME || value;
+
+    case "CATEGORY_ID":
+      return dropdownData.devicescategory?.find(c => c.CATEGORY_ID == value)?.CATEGORY_NAME || value;
+
+    case "DEVICE_ID":
+    case "Device_ID":
+      return dropdownData.devices?.find(d => d.DEVICE_ID == value)?.DEVICE_NAME || value;
+
+    case "SENSOR_ID":
+      return dropdownData.sensors?.find(s => s.SENSOR_ID == value)?.SENSOR_NAME || value;
+
+    case "PARAMETER_ID":
+      return dropdownData.parameters?.find(p => p.PARAMETER_ID == value)?.PARAMETER_NAME || value;
+
+    case "UOM_ID":
+      return dropdownData.uoms?.find(u => u.UOM_ID == value)?.UOM_NAME || value;
+
+    case "Subscription_ID":
+      return dropdownData.mastersubscriptioninfo?.find(s => s.Subscription_ID == value)?.Package_Name || value;
+
+    case "Plan_ID":
+      return dropdownData.masterplantype?.find(p => p.Plan_ID == value)?.Plan_Name || value;
+
+    case "USER_ID":
+      return dropdownData.user?.find(u => u.USER_ID == value)?.USERNAME || value;
+
+    case "ROLE_ID":
+      return dropdownData.roles?.find(r => r.ROLE_ID == value)?.ROLE_NAME || value;
+
+    case "CREATED_BY":
+      let u = dropdownData.user?.find(x => x.USER_ID == value);
+      if (!u) return "—";
+      let r = dropdownData.roles?.find(x => x.ROLE_ID == u.ROLE_ID);
+      return r ? r.ROLE_NAME : "—";
+
+    default:
+      return value;
+  }
+}
+
+function openSummaryPopup(type) {
+    const data = window.summaryData[type];
+    let title = "";
+    let body = "";
+
+ if (type === "organizations") {
+    title = "ORGANIZATIONS";
+
+    body = `
+        <div class="popup-heading">${title}</div>
+        <div class="popup-divider"></div>
+
+        ${data.map(o => `
+            <div class="popup-item">
+                <i class="bi bi-building popup-icon"></i>
+                <span class="popup-text">${o.ORGANIZATION_NAME}</span>
+            </div>
+        `).join("")}
+    `;
+}
+
+
+
+if (type === "devices") {
+    title = "All Devices";
+
+    body = `
+<style>
+.modal-content {
+    border-radius: 18px !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    overflow: hidden;
+}
+
+/* Table wrapper */
+.pro-table {
+    border-radius: 12px;
+    overflow: hidden;
+    border: none;
+}
+
+/* Header */
+.pro-table thead th {
+    background: linear-gradient(90deg, #343a40, #495057);
+    color: #fff;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    border: none !important;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Cells */
+.pro-table td {
+    padding: 12px 14px;
+    font-size: 15px;
+    vertical-align: middle;
+}
+
+/* Alternating rows */
+.pro-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.pro-table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+/* Hover */
+.pro-table tbody tr:hover {
+    background: #eaf4ff !important;
+    cursor: pointer;
+    transition: 0.2s ease-in-out;
+}
+
+/* Badges */
+.status-badge {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    display: inline-block;
+}
+
+.badge-active {
+    background: #2ecc71;
+    color: white;
+}
+
+.badge-expired {
+    background: #e74c3c;
+    color: white;
+}
+
+.badge-none {
+    background: #95a5a6;
+    color: white;
+}
+
+/* Modal Body Padding */
+.modal-body {
+    padding: 25px !important;
+    background: #fdfdfd;
+}
+</style>
+    <div class="table-responsive">
+      <table class="table pro-table table-hover">
+        <thead>
+          <tr>
+            <th>Device Name</th>
+            <th>Organization</th>
+            <th>Centre</th>
+            <th>Plan Type</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${data.map(d => {
+
+            const org = dropdownData.orgs?.find(o => String(o.ORGANIZATION_ID) === String(d.ORGANIZATION_ID));
+            const cen = dropdownData.centres?.find(c => String(c.CENTRE_ID) === String(d.CENTRE_ID));
+
+            const sub = dropdownData.mastersubscriptionhistory
+              ?.filter(s => String(s.Device_ID) === String(d.DEVICE_ID))
+              ?.sort((a,b) => new Date(b.Subscription_Start_date) - new Date(a.Subscription_Start_date))[0];
+
+            const plan = dropdownData.masterplantype?.find(p => p.Plan_ID == sub?.Plan_ID);
+
+            const start = sub?.Subscription_Start_date ?? "-";
+            const end   = sub?.Subcription_End_date ?? "-";
+            const planName = plan ? `${plan.Plan_Name} (${plan.Plan_ID})` : "-";
+
+            let badge = `<span class="status-badge badge-none">No Plan</span>`;
+
+            if (end !== "-") {
+                const today = new Date();
+                const endDate = new Date(end);
+                const diff = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+
+                if (diff >= 0) {
+                    badge = `<span class="status-badge badge-active">${diff} Days Left</span>`;
+                } else {
+                    badge = `<span class="status-badge badge-expired">Expired</span>`;
+                }
+            }
+
+            return `
+              <tr>
+                <td><b>${d.DEVICE_NAME}</b> <small class="text-muted">(${d.DEVICE_ID})</small></td>
+                <td>${org ? `${org.ORGANIZATION_NAME} (${org.ORGANIZATION_ID})` : "-"}</td>
+                <td>${cen ? `${cen.CENTRE_NAME} (${cen.CENTRE_ID})` : "-"}</td>
+                <td>${planName}</td>
+                <td>${start}</td>
+                <td>${end}</td>
+                <td>${badge}</td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+    `;
+}
+
+
+
+
+    if (type === "online") {
+    title = "Online Devices";
+
+    body = data.map(s => {
+
+        const device = dropdownData.devices.find(d => d.DEVICE_ID == s.DEVICE_ID);
+
+        // latest reading
+        const read = window.summaryData.readings
+            .filter(r => r.DEVICE_ID == s.DEVICE_ID)
+            .sort((a,b) => new Date(b.RAISED_TIME) - new Date(a.RAISED_TIME))[0];
+
+        // latest alarm
+        const alarm = window.summaryData.alarms
+            .filter(r => r.DEVICE_ID == s.DEVICE_ID)
+            .sort((a,b) => new Date(b.RAISED_TIME) - new Date(a.RAISED_TIME))[0];
+
+        return `
+        <div class="popup-item">
+            <div>
+                <strong>${device?.DEVICE_NAME}</strong><br>
+                Status: <span class="text-success">ONLINE</span><br>
+                Reading: ${read ? read.READING : "—"}<br>
+                Alarm: ${alarm ? alarm.MESSAGE : "—"}<br>
+                Updated: ${s.updated_at}
+            </div>
+        </div>
+        <div class="popup-divider"></div>
+        `;
+    }).join("");
+}
+
+
+    if (type === "offline") {
+    title = "Offline Devices";
+
+    body = window.summaryData.offline.map(d => `
+        <div class="popup-item">
+            <strong>Device ID: ${d.DEVICE_ID}</strong><br>
+            Status: <span class="text-danger">OFFLINE</span><br>
+            Updated: ${d.UPDATED_ON_DATE ?? "—"} ${d.UPDATED_ON_TIME ?? ""}
+        </div>
+        <div class="popup-divider"></div>
+    `).join("");
+}
+
+
+    showPopup(title, body);
+} //for offline and online devices//
+
+function showPopup(title, content) {
+  const existing = document.getElementById("summaryPopup");
+  if (existing) existing.remove();
+
+  const popup = `
+    <div class="modal fade" id="summaryPopup" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg" style="border-radius: 16px;">
+          
+          <div class="modal-header" style="border-bottom: 1px solid #eee;">
+            <h5 class="modal-title fw-semibold">${title}</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          
+          <div class="modal-body">
+            ${content}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend", popup);
+  new bootstrap.Modal(document.getElementById("summaryPopup")).show();
+}
 
 
 // ===== preload dropdown datasets =====
@@ -385,9 +831,11 @@ async function loadDropdowns(){
     dropdownData.roles   = await fetchJSON(API.masterrole);
     dropdownData.user   = await fetchJSON(API.createuser);
     dropdownData.devicescategory = await fetchJSON(API.devicescategory);
-    dropdownData.mastersubscriptioninfo = await fetchJSON(API.mastersubscriptioninfo)
-    dropdownData.masterplantype = await fetchJSON(API.masterplantype)
-    dropdownData.mastersubscriptionhistory = await fetchJSON(API.mastersubscriptionhistory)
+    dropdownData.mastersubscriptioninfo = await fetchJSON(API.mastersubscriptioninfo);
+    dropdownData.masterplantype = await fetchJSON(API.masterplantype);
+    dropdownData.mastersubscriptionhistory = await fetchJSON(API.mastersubscriptionhistory);
+    dropdownData.devicestatusalarmlog = await fetchJSON(API.devicestatusalarmlog);
+
   }catch(err){
     console.error("Dropdown preload failed:", err);
   }
@@ -420,6 +868,10 @@ function sortDescending(table, data) {
 // ===== load & draw table =====
 async function loadTable(table) {
   currentTable = normalizeKey(table);
+
+ // ✅ Show the tableSection whenever a table is loaded
+  document.getElementById("tableSection").style.display = "block";
+
   if (!API[currentTable]) {
     console.error("No API for:", table, currentTable);
     return;
@@ -511,25 +963,36 @@ if (currentTable === "devicealarmlog") {
   let headers = currentData.length ? Object.keys(currentData[0]) : (FIELD_SCHEMAS[currentTable] || []);
   const pk = PRIMARY_KEYS[currentTable] || headers[0];
 
-  // ✅ Add extra ID field for master tables
-  if (currentTable === "masterdevices" && !headers.includes("DEVICE_ID")) headers.push("DEVICE_ID");
-  if (currentTable === "mastersensor" && !headers.includes("SENSOR_ID")) headers.push("SENSOR_ID");
-  if (currentTable === "masterparameter" && !headers.includes("PARAMETER_ID")) headers.push("PARAMETER_ID");
+  // // ✅ Add extra ID field for master tables
+  // if (currentTable === "masterdevices" && !headers.includes("DEVICE_ID")) headers.push("DEVICE_ID");
+  // if (currentTable === "mastersensor" && !headers.includes("SENSOR_ID")) headers.push("SENSOR_ID");
+  // if (currentTable === "masterparameter" && !headers.includes("PARAMETER_ID")) headers.push("PARAMETER_ID");
+  
 
   // ✅ Render table headers with friendly names
-  const displayHeaders = headers.map(h => {
-    if (["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicealarmlog","devicereadinglog","mastersubscriptioninfo","masterplantype","mastersubscriptionhistory",].includes(currentTable) && h === pk) {
+const displayHeaders = headers
+  .filter(h => !(currentTable === "createuser" && h === "IS_ACTIVE"))   // 🔥 REMOVE IS_ACTIVE COLUMN
+  .map(h => {
+    if ([
+      "masterorganizations","mastercentre","masterdevices","mastersensor",
+      "masterparameter","masteruom","createuser","masterrole",
+      "sensorparameterlink","devicesensorlink","userorganizationcentrelink",
+      "masternotificationtime","devicescategory","devicealarmlog",
+      "devicereadinglog","mastersubscriptioninfo","masterplantype",
+      "mastersubscriptionhistory"
+    ].includes(currentTable) && h === pk) {
       return "S_NO";
     }
     return HEADER_LABELS[h] || h;
   });
 
+
   // ✅ Add extra header for master IDs
 if (currentTable === "masterdevices") displayHeaders.push("DEVICE_ID");
 if (currentTable === "mastersensor") displayHeaders.push("SENSOR_ID");
 if (currentTable === "masterparameter") displayHeaders.push("PARAMETER_ID");
-
-
+if (currentTable === "masterorganizations") displayHeaders.push("ORGANIZATION_ID");
+if (currentTable === "mastercentre") displayHeaders.push("CENTRE_ID");
   thead.innerHTML = `<tr>${
     displayHeaders.filter((h,i) => headers[i] !== "PASSWORD").map(h => `<th>${h}</th>`).join("")
   }${ (currentTable === "devicealarmlog" || currentTable === "devicereadinglog") ? "" : "<th>Actions</th>" }
@@ -545,13 +1008,110 @@ if (currentTable === "masterparameter") displayHeaders.push("PARAMETER_ID");
   // ----- Render table body -----
 if (currentData.length) {
   tbody.innerHTML = currentData.map((row, rowIdx) => {
-    let rowCells = headers.filter(h => h !== "PASSWORD").map(h => {
-      let cellVal = row[h] ?? "";
 
-      // PK → S_NO numbering
-      if (h === pk && ["masterorganizations","mastercentre","masterdevices","mastersensor","masterparameter","masteruom","createuser","masterrole","sensorparameterlink","devicesensorlink","userorganizationcentrelink","masternotificationtime","devicescategory","devicereadinglog","devicealarmlog","mastersubscriptioninfo","masterplantype","mastersubscriptionhistory",].includes(currentTable)) {
+   let rowCells = headers
+  .filter(h => h !== "PASSWORD" && !(currentTable === "createuser" && h === "IS_ACTIVE"))
+.map(h => {
+
+    // =====================
+    // 1️⃣ S_NO numbering
+    // =====================
+    if (
+        h === pk &&
+        [
+            "sensorparameterlink",
+            "devicesensorlink",
+            "masterorganizations","mastercentre","masterdevices",
+            "mastersensor","masterparameter","masteruom",
+            "createuser","masterrole","userorganizationcentrelink",
+            "masternotificationtime","devicescategory",
+            "devicereadinglog","devicealarmlog",
+            "mastersubscriptioninfo","masterplantype",
+            "mastersubscriptionhistory"
+        ].includes(currentTable)
+    ) {
         return `<td>${rowIdx + 1}</td>`;
-      }
+    }
+
+    // ===========================================================
+    // 2️⃣ SPECIAL FORMATTING → MUST RUN BEFORE DEFAULT RETURN
+    // ===========================================================
+
+    // 🌟 SENSOR PARAMETER LINK (show NAME + ID)
+    if (currentTable === "sensorparameterlink") {
+
+        if (h === "SENSOR_ID") {
+            const s = dropdownData.sensors?.find(x => x.SENSOR_ID == row[h]);
+            return `<td>${s ? `${s.SENSOR_NAME} (${s.SENSOR_ID})` : row[h]}</td>`;
+        }
+
+        if (h === "PARAMETER_ID") {
+            const p = dropdownData.parameters?.find(x => x.PARAMETER_ID == row[h]);
+            return `<td>${p ? `${p.PARAMETER_NAME} (${p.PARAMETER_ID})` : row[h]}</td>`;
+        }
+    }
+
+    // 🌟 DEVICE SENSOR LINK (show NAME + ID)
+    if (currentTable === "devicesensorlink") {
+
+        if (h === "DEVICE_ID") {
+            const d = dropdownData.devices?.find(x => x.DEVICE_ID == row[h]);
+            return `<td>${d ? `${d.DEVICE_NAME} (${d.DEVICE_ID})` : row[h]}</td>`;
+        }
+
+        if (h === "SENSOR_ID") {
+            const s = dropdownData.sensors?.find(x => x.SENSOR_ID == row[h]);
+            return `<td>${s ? `${s.SENSOR_NAME} (${s.SENSOR_ID})` : row[h]}</td>`;
+        }
+
+        if (h === "ORGANIZATION_ID") {
+            const o = dropdownData.orgs?.find(x => x.ORGANIZATION_ID == row[h]);
+            return `<td>${o ? `${o.ORGANIZATION_NAME} (${o.ORGANIZATION_ID})` : row[h]}</td>`;
+        }
+
+        if (h === "CENTRE_ID") {
+            const c = dropdownData.centres?.find(x => x.CENTRE_ID == row[h]);
+            return `<td>${c ? `${c.CENTRE_NAME} (${c.CENTRE_ID})` : row[h]}</td>`;
+        }
+    }
+
+    // ===============================
+    // 3️⃣ DEFAULT NAME MAPPING
+    // ===============================
+    // let cellVal = resolveName(h, row[h]);
+    let rawVal = row[h];
+let cellVal = (rawVal === 0 || rawVal === "0") ? "0" : resolveName(h, rawVal);
+
+
+    // Boolean fields
+    if (h === "SEND_SMS" || h === "SEND_EMAIL") {
+        cellVal = row[h] ? "Yes" : "No";
+    }
+
+    // Created by → Role
+    if (h === "CREATED_BY") {
+        const creator = dropdownData.user?.find(u => u.USER_ID == row[h]);
+        const roleObj = dropdownData.roles?.find(r => r.ROLE_ID == creator?.ROLE_ID);
+        cellVal = roleObj ? roleObj.ROLE_NAME : "—";
+    }
+     // 🔥🔥 DEVICE_STATUS (THIS WAS NOT WORKING BEFORE)
+        if (h === "DEVICE_STATUS") {
+    cellVal = row.DEVICE_STATUS ?? "";   // show 1/0 exactly
+    return `<td>${cellVal}</td>`;
+}
+if (h === "SENSOR_STATUS") {
+    cellVal = row.SENSOR_STATUS ?? "";   // show 1/0 exactly
+    return `<td>${cellVal}</td>`;
+}
+
+if (h === "created_by") {
+    const creator = dropdownData.user?.find(u => u.USER_ID == row[h]);
+    const roleObj = dropdownData.roles?.find(r => r.ROLE_ID == creator?.ROLE_ID);
+    cellVal = roleObj ? roleObj.ROLE_NAME : "—";
+}
+
+    return `<td>${cellVal}</td>`;
+ // to show id of device,sensor, parameter etc 
 
       // Map IDs → Names
       if (h === "ORG_ID" || h === "ORGANIZATION_ID") {
@@ -620,6 +1180,11 @@ if (currentData.length) {
     if (currentTable === "masterdevices") rowCells += `<td>${row.DEVICE_ID || ""}</td>`;
     if (currentTable === "mastersensor") rowCells += `<td>${row.SENSOR_ID || ""}</td>`;
     if (currentTable === "masterparameter") rowCells += `<td>${row.PARAMETER_ID || ""}</td>`;
+    if (currentTable === "mastercentre") rowCells += `<td>${row.CENTRE_ID || ""}</td>`;
+    if (currentTable === "masterorganizations") rowCells += `<td>${row.ORGANIZATION_ID || ""}</td>`;
+
+
+
 
     const addBtn = document.getElementById("addBtn");
     if (currentTable === "devicereadinglog" || currentTable === "devicealarmlog") {
@@ -675,6 +1240,28 @@ if (currentTable === "mastersensor") {
       </td>`}
   </tr>`;
 }
+
+if (currentTable === "createuser") {
+  const active = (String(row.IS_ACTIVE) === "1" || String(row.IS_ACTIVE).toLowerCase() === "true");
+
+  return `<tr class="${active ? '' : 'inactive-row'}">
+    ${rowCells}
+    <td>
+      <button class="btn btn-sm btn-warning me-2" onclick='editRow(${JSON.stringify(row)})'>
+        <i class="bi bi-pencil"></i>
+      </button>
+
+      <label class="switch">
+        <input type="checkbox" ${active ? "checked" : ""} 
+          onchange="toggleUserStatus(${row.USER_ID}, this)">
+        <span class="slider round">
+          <span class="status-text">${active ? "Active" : "Inactive"}</span>
+        </span>
+      </label>
+    </td>
+  </tr>`;
+}
+
     return `<tr>${rowCells}${noActions ? "" : `
       <td>
         <button class="btn btn-sm btn-warning" onclick='editRow(${JSON.stringify(row)})'><i class="bi bi-pencil"></i></button>
@@ -778,7 +1365,8 @@ if (currentTable === "createuser") {
       </div>
       <div class="col-md-6 mb-3">
         <label class="form-label">Username</label>
-        <input type="text" class="form-control" name="USERNAME" value="${row.USERNAME ?? ''}">
+       <input type="text" class="form-control" id="USERNAME" name="USERNAME" value="${row.USERNAME ?? ''}">
+      <small id="usernameError" class="text-danger fw-bold"></small>
       </div>
 <div class="col-md-6 mb-3">
   <label class="form-label">Role</label>
@@ -877,7 +1465,35 @@ if (currentTable === "createuser") {
 
     passwordInput.addEventListener("input", validatePassword);
     confirmInput.addEventListener("input", validatePassword);
+  
+        const usernameInput = document.getElementById("USERNAME");
+    const usernameError = document.getElementById("usernameError");
+
+    usernameInput.addEventListener("input", function () {
+      const username = this.value.trim();
+      if (!username) {
+        usernameError.textContent = "";
+        usernameInput.style.border = "";
+        return;
+      }
+
+      const exists = (dropdownData.user || []).some(
+        u => u.USERNAME.toLowerCase() === username.toLowerCase()
+      );
+
+      if (exists) {
+        usernameError.textContent = "⚠ Username already taken";
+        usernameError.className = "text-danger fw-bold";
+        usernameInput.style.border = "2px solid red";
+      } else {
+        usernameError.textContent = "✔ Username available";
+        usernameError.className = "text-success fw-bold";
+        usernameInput.style.border = "2px solid green";
+      }
+    });
+  
   }, 100);
+  
 
   return;
 }
@@ -892,6 +1508,10 @@ if (currentTable === "createuser") {
   if (currentTable === "mastersensor" && key === "SENSOR_STATUS") return;
   if (currentTable === "masterdevices" && key === "DEVICE_STATUS") return;
   if (currentTable === "mastersubscriptionhistory" && key === "Status") return;
+  if (currentTable === "createuser" && key === "IS_ACTIVE") return;
+  if (key === "created_by") return;
+
+
 
   let fieldHtml = "";
     // PK handling
@@ -1120,14 +1740,25 @@ if (key === "CATEGORY_ID") {
 else if(k.endsWith("_at") || k.endsWith("_time"))
   type = "datetime-local";
 
-    else if(k.includes("upper")||k.includes("lower")||k.includes("value")||k.includes("threshold")||k.endsWith("_id")) type="number";
+  else if (k.includes("upper") || k.includes("lower") || k.includes("value") || 
+         k.includes("threshold") || k.endsWith("_id"))
+    type = "number";
 
-    fieldsDiv.innerHTML += `
-      <div class="mb-3">
-        <label class="form-label">${key}</label>
-        <input class="form-control" name="${key}" value="${row[key]??''}" type="${type}" oninput="this.value = formatFirstWord(this.value)">
-      </div>`;
-  });
+let stepAttr = "";
+if (type === "number") {
+    stepAttr = `step="any"`;   // allow decimals like 4.5, 8.75, etc.
+}
+
+fieldsDiv.innerHTML += `
+  <div class="mb-3">
+    <label class="form-label">${key}</label>
+    <input class="form-control"
+           name="${key}"
+           value="${row[key] ?? ''}"
+           type="${type}"
+           ${stepAttr}>
+  </div>`;
+  })
 
   // ===== Dependent dropdown logic (ONLY if NOT centreorganizationlink) =====
   // if(currentTable !== "centreorganizationlink"){
@@ -1149,6 +1780,39 @@ else if(k.endsWith("_at") || k.endsWith("_time"))
   //     updateCentres(); // initial populate
   //   }
   // }
+
+ // ---- DEPENDENT DROPDOWN FOR USER-ORG-CENTRE-LINK ----
+if (currentTable === "userorganizationcentrelink") {
+
+    const orgDropdown = fieldsDiv.querySelector('select[name="ORGANIZATION_ID"]');
+    const centreDropdown = fieldsDiv.querySelector('select[name="CENTRE_ID"]');
+
+    function updateCentres() {
+        const orgId = orgDropdown.value;
+
+        // Filter centres based on selected org
+        const filtered = dropdownData.centres.filter(c => 
+            String(c.ORGANIZATION_ID) === String(orgId)
+        );
+
+        // Populate centre dropdown
+        centreDropdown.innerHTML =
+            `<option value="">-- Choose Centre --</option>` +
+            filtered.map(c =>
+                `<option value="${c.CENTRE_ID}" 
+                    ${c.CENTRE_ID == (row.CENTRE_ID ?? "") ? 'selected' : ''}>
+                    ${c.CENTRE_NAME}
+                </option>`
+            ).join("");
+    }
+
+    // Attach change listener
+    orgDropdown.addEventListener("change", updateCentres);
+
+    // Auto-load centres for Edit mode
+    updateCentres();
+}
+ 
 }
 
 
@@ -1167,6 +1831,12 @@ document.getElementById('crudForm').addEventListener('submit', async function(e)
   let payload = {};
   form.forEach((v,k)=>payload[k]=v);
 
+  // Auto-assign created_by if field exists in table and not shown in modal
+if (currentTable === "userorganizationcentrelink") {
+    payload["created_by"] = 1;   // <-- put logged-in user ID here
+}
+
+
   // Convert checkboxes to boolean
   ["SEND_SMS","SEND_EMAIL"].forEach(f => {
     if(payload[f] === "on") payload[f] = true;
@@ -1181,6 +1851,20 @@ document.getElementById('crudForm').addEventListener('submit', async function(e)
       payload.CENTRE_ID = device.CENTRE_ID;
     }
   }
+
+  if (currentTable === "createuser") {
+  const username = document.getElementById("USERNAME").value.trim();
+
+  const exists = (dropdownData.user || []).some(
+    u => u.USERNAME.toLowerCase() === username.toLowerCase()
+  );
+
+  if (exists) {
+    alert("Username already exists. Please choose another.");
+    return;
+  }
+}
+
 
   // primary key detect
   const pk = PRIMARY_KEYS[currentTable];
@@ -1266,6 +1950,27 @@ function toggleSensorStatus(sensorId, checkbox) {
   .catch(err => console.error("Failed to update SENSOR_STATUS:", err));
 }
 
+function toggleUserStatus(userId, checkbox) {
+  const isActive = checkbox.checked;
+  const tr = checkbox.closest("tr");
+
+  // Update UI
+  tr.classList.toggle("inactive-row", !isActive);
+  checkbox.nextElementSibling.querySelector(".status-text").textContent =
+    isActive ? "Active" : "Inactive";
+
+  // Update backend
+  fetch(`${API.createuser}${userId}/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ IS_ACTIVE: isActive ? 1 : 0 })
+  })
+  .then(res => {
+    if (!res.ok) return res.text().then(txt => { throw new Error(txt); });
+    console.log("✅ USER_STATUS updated:", { USER_ID: userId, IS_ACTIVE: isActive });
+  })
+  .catch(err => console.error("Failed to update USER_STATUS:", err));
+}
 
 // ===== Delete =====
 async function deleteRow(id){
@@ -1540,20 +2245,54 @@ function openRenewForm(subscription) {
 
 
 // ===== Summary cards =====
-async function updateSummary(){
-  try{
-    const [d,p,s,o] = await Promise.all([
-      fetchJSON(API.masterdevices),
-      fetchJSON(API.masterparameter),
-      fetchJSON(API.mastersensor),
-      fetchJSON(API.masterorganizations)
-    ]);
-    document.getElementById('totalDevices').innerText=d.length;
-    document.getElementById('totalParameters').innerText=p.length;
-    document.getElementById('totalSensors').innerText=s.length;
-    document.getElementById('totalOrganizations').innerText=o.length;
-  }catch(e){ console.warn("Summary update skipped:", e); }
+// async function updateSummary(){
+//   try{
+//     const [d,p,s,o] = await Promise.all([
+//       fetchJSON(API.masterdevices),
+//       fetchJSON(API.masterparameter),
+//       fetchJSON(API.mastersensor),
+//       fetchJSON(API.masterorganizations)
+//     ]);
+//     document.getElementById('totalDevices').innerText=d.length;
+//     document.getElementById('totalParameters').innerText=p.length;
+//     document.getElementById('totalSensors').innerText=s.length;
+//     document.getElementById('totalOrganizations').innerText=o.length;
+//   }catch(e){ console.warn("Summary update skipped:", e); }
+// }
+
+async function updateSummary() {
+  try {
+    const devices = await fetchJSON(API.masterdevices);
+    const orgs    = await fetchJSON(API.masterorganizations);
+    const readings = await fetchJSON(API.devicereadinglog);
+    const alarms = await fetchJSON(API.devicealarmlog);
+    const statuslog = await fetchJSON(API.devicestatusalarmlog);
+
+    // Total devices
+    document.getElementById("totalOrganizations").innerText = orgs.length;
+    document.getElementById("totalDevices").innerText = devices.length;
+
+    const online = statuslog.filter(s => Number(s.DEVICE_STATUS) === 1);
+    const offline = statuslog.filter(s => Number(s.DEVICE_STATUS) === 0);
+
+    window.summaryData = {
+        organizations: orgs,
+        devices: devices,
+        online: online,
+        offline: offline,
+        readings: readings,
+        alarms: alarms,
+        statuslog: statuslog
+    };
+
+  } catch (e) {
+    console.warn("Summary update skipped:", e);
+  }
 }
+
+
+
+
 
 // ===== init =====
 document.addEventListener("DOMContentLoaded", () => {
