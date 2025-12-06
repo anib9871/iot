@@ -1242,7 +1242,16 @@ if (currentTable === "mastersensor") {
 }
 
 if (currentTable === "createuser") {
-  const active = (String(row.IS_ACTIVE) === "1" || String(row.IS_ACTIVE).toLowerCase() === "true");
+  // const active = (String(row.IS_ACTIVE) === "1" || String(row.IS_ACTIVE).toLowerCase() === "true");
+  const isActiveValue = String(row.IS_ACTIVE).trim().toLowerCase();
+
+const active = (
+    isActiveValue === "1" ||
+    isActiveValue === "true" ||
+    isActiveValue === "active" ||
+    isActiveValue === "yes"
+);
+
 
   return `<tr class="${active ? '' : 'inactive-row'}">
     ${rowCells}
