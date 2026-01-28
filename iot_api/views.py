@@ -1,3 +1,4 @@
+
 # iot_api/views.py
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
@@ -322,3 +323,39 @@ def devicecheck(request, device_id):
         "valid_till": sub.Subcription_End_date.strftime("%Y-%m-%d") if sub.Subcription_End_date else None
     })
 
+# ================================
+# Twilio Call Status Webhook
+# ================================
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+from django.utils import timezone
+
+@csrf_exempt
+def twilio_call_status(request):
+    if request.method != "POST":
+        return HttpResponse("Method Not Allowed", status=405)
+
+    call_sid = request.POST.get("CallSid")
+    status = request.POST.get("CallStatus")
+
+    if not call_sid:
+        return HttpResponse("Missing CallSid", status=400)
+
+    if status == "completed":
+        new_status = 1  # COMPLETED
+    elif status in ("no-answer", "busy", "canceled"):
+        new_status = 3  # NO ANSWER
+    elif status == "failed":
+        new_status = 2  # FAILED
+    else:
+        return HttpResponse(f"Ignored status: {status}")
+
+    DeviceAlarmCallLog.objects.filter(
+        CALL_SID=call_sid,
+        CALL_STATUS=0
+    ).update(
+        CALL_STATUS=new_status,
+        LST_UPD_DT=timezone.now()
+    )
+
+    return HttpResponse("OK")
